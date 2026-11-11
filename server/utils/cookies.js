@@ -48,6 +48,25 @@ function clearLegacyRefreshCookie(res) {
   });
 }
 
+function setAdminRefreshCookie(res, refreshToken) {
+  res.cookie(env.adminRefreshCookieName, refreshToken, {
+    httpOnly: true,
+    secure: env.cookieSecure,
+    sameSite: 'lax',
+    path: '/api/v1/admin',
+    maxAge: env.refreshTokenTtlSeconds * 1000
+  });
+}
+
+function clearAdminRefreshCookie(res) {
+  res.clearCookie(env.adminRefreshCookieName, {
+    httpOnly: true,
+    secure: env.cookieSecure,
+    sameSite: 'lax',
+    path: '/api/v1/admin'
+  });
+}
+
 function setOAuthStateCookie(res, stateToken) {
   res.cookie(env.oauthStateCookieName, stateToken, {
     httpOnly: true,
@@ -71,6 +90,8 @@ module.exports = {
   getCookie,
   setRefreshCookie,
   clearRefreshCookie,
+  setAdminRefreshCookie,
+  clearAdminRefreshCookie,
   setOAuthStateCookie,
   clearOAuthStateCookie
 };

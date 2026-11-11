@@ -1715,3 +1715,50 @@ enum ReferralStatus {
   active
   inactive
 }
+
+// Changes add by mak developers ----------------------------------------------
+
+// ==========================================
+// ADMIN MANAGEMENT MODELS
+// ==========================================
+
+enum AdminRole {
+  SUPER_ADMIN
+  SUB_ADMIN
+}
+
+enum AdminStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+model Admin {
+  id                    String      @id @default(uuid()) @db.Uuid
+  name                  String      @db.VarChar(100)
+  email                 String      @unique @db.VarChar(320)
+  password_hash         String      @db.VarChar(255)
+  role                  AdminRole   @default(SUB_ADMIN)
+  status                AdminStatus @default(ACTIVE)
+  refresh_token_version Int         @default(0)
+
+  // Track creator (Super-Admin / System)
+  created_by_id String?  @db.Uuid
+  created_by    Admin?   @relation("AdminCreator", fields: [created_by_id], references: [id], onDelete: SetNull)
+  created_admins Admin[] @relation("AdminCreator")
+
+  // Permissions array (Filhal [] default rahega)
+  permissions String[] @default([])
+
+  // Audit timestamps
+  last_login_at DateTime? @db.Timestamptz(6)
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime  @updatedAt @db.Timestamptz(6)
+  deleted_at    DateTime? @db.Timestamptz(6)
+
+  @@index([role])
+  @@index([status])
+  @@index([created_by_id])
+  @@unique([role], where: raw("role = 'SUPER_ADMIN'"), map: "admins_single_super_admin_key")
+  @@map("admins")
+}

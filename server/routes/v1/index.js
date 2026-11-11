@@ -3,6 +3,7 @@ const { env } = require("../../config/env");
 
 const healthRoutes = require("./health.routes");
 const authRoutes = require("./auth.routes");
+const adminRoutes = require('./admin.routes');
 const otpRoutes = require("./otp.routes");
 const phoneVerificationRoutes = require("./phoneVerification.routes");
 const secretKeyRoutes = require("./secretKey.routes");
@@ -51,6 +52,7 @@ router.use(ADULT_ONLY_PATHS, blockChildAccounts);
 // Health + General
 router.use("/health", healthRoutes);
 router.use("/auth", authRoutes);
+router.use('/admin', adminRoutes);
 router.use("/otp", otpRoutes);
 router.use("/phone-verification", phoneVerificationRoutes);
 router.use("/secret-keys", secretKeyRoutes);

@@ -20,6 +20,7 @@
     "script:verify-provisioning": "node scripts/verify-provisioning.js",
     "script:verify-api-standards": "node scripts/verify-api-standards.js",
     "script:verify-auth-standards": "node scripts/verify-auth-standards.js",
+    "script:verify-admin-auth": "node scripts/verify-admin-auth.js",
     "script:verify-profile-standards": "node scripts/verify-profile-standards.js",
     "script:verify-profile-authorization": "node scripts/verify-profile-authorization.js",
     "script:verify-sanitize": "node scripts/verify-sanitize.js",

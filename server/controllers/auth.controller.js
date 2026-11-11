@@ -34,6 +34,7 @@ const {
 } = require('../services/auth.service');
 const { verifySecretKey } = require('../services/secretKey.service');
 
+// Register User
 const register = asyncHandler(async (req, res) => {
   const { referral, ...body } = req.body;
   const result = await registerUser({ ...body, referral });

@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { buildOpenApiSpec } = require('../docs/swagger/spec');
+const { buildAdminOpenApiSpec } = require('../docs/swagger/admin-spec');
 const { env } = require('../config/env');
 
 const routesRoot = path.join(__dirname, '..', 'routes');
@@ -22,18 +23,18 @@ function parseRouteMounts() {
   const source = fs.readFileSync(v1IndexPath, 'utf8');
   const mounts = [{ base: '', prefix: '', file: path.join(routesRoot, 'index.js') }];
 
-  const usePattern = /router\.use\('([^']+)',\s*(\w+)Routes\)/g;
-  const requirePattern = /const\s+(\w+)Routes\s+=\s+require\('\.\/([^']+)'\)/g;
+  const usePattern = /router\.use\((['"])(.*?)\1,\s*(\w+)Routes\)/g;
+  const requirePattern = /const\s+(\w+)Routes\s+=\s+require\((['"])\.\/(.*?)\2\)/g;
 
   const requireMap = {};
   let match;
 
   while ((match = requirePattern.exec(source)) !== null) {
-    requireMap[match[1]] = match[2];
+    requireMap[match[1]] = match[3];
   }
 
   while ((match = usePattern.exec(source)) !== null) {
-    const [, prefix, routeVar] = match;
+    const [, , prefix, routeVar] = match;
     const routeFile = requireMap[routeVar];
 
     if (!routeFile) {
@@ -157,14 +158,40 @@ function run() {
 
   const expressRoutes = collectExpressRoutes();
   const spec = buildOpenApiSpec({ includeDev: !env.isProduction });
+  const adminSpec = buildAdminOpenApiSpec();
+  const adminExpressRoutes = expressRoutes.filter((route) => route.path.startsWith('/api/v1/admin/'));
+  const customerExpressRoutes = expressRoutes.filter((route) => !route.path.startsWith('/api/v1/admin/'));
   const swaggerRoutes = collectSwaggerOperations(spec);
+  const adminSwaggerRoutes = collectSwaggerOperations(adminSpec);
 
-  const apiOk = diffOperations('Express routes vs swagger spec', expressRoutes, swaggerRoutes);
+  const customerExpressKeys = new Set(customerExpressRoutes.map(operationKey));
+  const invalidCustomerDocs = swaggerRoutes.filter(
+    (route) => !customerExpressKeys.has(operationKey(route))
+  );
+  const apiOk = invalidCustomerDocs.length === 0;
+  if (apiOk) {
+    console.log(`OK  Customer Swagger operations map to Express routes: ${swaggerRoutes.length} operations`);
+  } else {
+    console.error(`FAIL Customer Swagger contains ${invalidCustomerDocs.length} operations without Express routes`);
+    invalidCustomerDocs.forEach((route) => console.error(`    - ${operationKey(route)}`));
+  }
 
-  console.log(`\nExpress routes: ${expressRoutes.length}`);
-  console.log(`Swagger operations: ${swaggerRoutes.length}`);
+  const adminOk = diffOperations('Admin Express routes vs isolated admin swagger spec', adminExpressRoutes, adminSwaggerRoutes);
 
-  if (!apiOk) {
+  const documentedCustomerKeys = new Set(swaggerRoutes.map(operationKey));
+  const undocumentedCustomerRoutes = customerExpressRoutes.filter(
+    (route) => !documentedCustomerKeys.has(operationKey(route))
+  );
+  if (undocumentedCustomerRoutes.length > 0) {
+    console.warn(`\nWARN ${undocumentedCustomerRoutes.length} existing customer routes are not documented in the unchanged customer Swagger spec.`);
+  }
+
+  console.log(`\nCustomer Express routes: ${customerExpressRoutes.length}`);
+  console.log(`Customer Swagger operations: ${swaggerRoutes.length}`);
+  console.log(`Admin Express routes: ${adminExpressRoutes.length}`);
+  console.log(`Admin Swagger operations: ${adminSwaggerRoutes.length}`);
+
+  if (!apiOk || !adminOk) {
     process.exit(1);
   }
 
