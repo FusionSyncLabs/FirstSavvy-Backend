@@ -1,0 +1,174 @@
+const fs = require('fs');
+const path = require('path');
+const { buildOpenApiSpec } = require('../docs/swagger/spec');
+const { env } = require('../config/env');
+
+const routesRoot = path.join(__dirname, '..', 'routes');
+
+function normalizePath(routePath) {
+  return routePath.replace(/\/+/g, '/').replace(/\/$/, '') || '/';
+}
+
+function expressPathToOpenApi(routePath) {
+  return normalizePath(
+    routePath
+      .replace(/:(\w+)/g, '{$1}')
+      .replace(/\/\^\(\\\/public\\\/\(\.\+\)\$\//, '/public/{filePath}')
+  );
+}
+
+function parseRouteMounts() {
+  const v1IndexPath = path.join(routesRoot, 'v1', 'index.js');
+  const source = fs.readFileSync(v1IndexPath, 'utf8');
+  const mounts = [{ base: '', prefix: '', file: path.join(routesRoot, 'index.js') }];
+
+  const usePattern = /router\.use\('([^']+)',\s*(\w+)Routes\)/g;
+  const requirePattern = /const\s+(\w+)Routes\s+=\s+require\('\.\/([^']+)'\)/g;
+
+  const requireMap = {};
+  let match;
+
+  while ((match = requirePattern.exec(source)) !== null) {
+    requireMap[match[1]] = match[2];
+  }
+
+  while ((match = usePattern.exec(source)) !== null) {
+    const [, prefix, routeVar] = match;
+    const routeFile = requireMap[routeVar];
+
+    if (!routeFile) {
+      throw new Error(`Could not resolve route module for ${routeVar}`);
+    }
+
+    mounts.push({
+      base: '/api/v1',
+      prefix,
+      file: path.join(routesRoot, 'v1', `${routeFile}.js`)
+    });
+  }
+
+  if (!env.isProduction) {
+    mounts.push({
+      base: '/api/v1',
+      prefix: '/dev',
+      file: path.join(routesRoot, 'v1', 'dev.routes.js')
+    });
+  }
+
+  return mounts;
+}
+
+function parseRouteFile(filePath, base, prefix) {
+  const source = fs.readFileSync(filePath, 'utf8');
+  const routes = [];
+  const quotedRoutePattern = /router\.(get|post|put|patch|delete)\(\s*(['"`])(.*?)\2/g;
+  const regexRoutePattern = /router\.(get|post|put|patch|delete)\(\/\^\\\/public\\\/\(\.\+\)\$\//g;
+
+  let match;
+  while ((match = quotedRoutePattern.exec(source)) !== null) {
+    const [, method, , routePath] = match;
+
+    routes.push({
+      method: method.toUpperCase(),
+      path: expressPathToOpenApi(normalizePath(`${base}${prefix}${routePath}`))
+    });
+  }
+
+  while ((match = regexRoutePattern.exec(source)) !== null) {
+    const [, method] = match;
+
+    routes.push({
+      method: method.toUpperCase(),
+      path: expressPathToOpenApi(normalizePath(`${base}${prefix}/public/{filePath}`))
+    });
+  }
+
+  return routes;
+}
+
+function collectExpressRoutes() {
+  const mounts = parseRouteMounts();
+  const routes = [];
+  const seen = new Set();
+
+  for (const mount of mounts) {
+    for (const route of parseRouteFile(mount.file, mount.base, mount.prefix)) {
+      const key = operationKey(route);
+      if (seen.has(key)) {
+        continue;
+      }
+
+      seen.add(key);
+      routes.push(route);
+    }
+  }
+
+  return routes;
+}
+
+function collectSwaggerOperations(spec) {
+  const operations = [];
+
+  for (const [routePath, methods] of Object.entries(spec.paths)) {
+    for (const method of Object.keys(methods)) {
+      operations.push({
+        method: method.toUpperCase(),
+        path: normalizePath(routePath)
+      });
+    }
+  }
+
+  return operations;
+}
+
+function operationKey({ method, path: routePath }) {
+  return `${method} ${routePath}`;
+}
+
+function diffOperations(label, expected, actual) {
+  const expectedKeys = new Set(expected.map(operationKey));
+  const actualKeys = new Set(actual.map(operationKey));
+
+  const missing = [...expectedKeys].filter((key) => !actualKeys.has(key)).sort();
+  const extra = [...actualKeys].filter((key) => !expectedKeys.has(key)).sort();
+
+  if (missing.length === 0 && extra.length === 0) {
+    console.log(`OK  ${label}: ${expected.length} operations in sync`);
+    return true;
+  }
+
+  console.error(`FAIL ${label}`);
+
+  if (missing.length > 0) {
+    console.error(`  Missing from swagger (${missing.length}):`);
+    missing.forEach((entry) => console.error(`    - ${entry}`));
+  }
+
+  if (extra.length > 0) {
+    console.error(`  Swagger-only (${extra.length}):`);
+    extra.forEach((entry) => console.error(`    - ${entry}`));
+  }
+
+  return false;
+}
+
+function run() {
+  console.log('Verifying swagger route coverage...\n');
+
+  const expressRoutes = collectExpressRoutes();
+  const spec = buildOpenApiSpec({ includeDev: !env.isProduction });
+  const swaggerRoutes = collectSwaggerOperations(spec);
+
+  const apiOk = diffOperations('Express routes vs swagger spec', expressRoutes, swaggerRoutes);
+
+  console.log(`\nExpress routes: ${expressRoutes.length}`);
+  console.log(`Swagger operations: ${swaggerRoutes.length}`);
+
+  if (!apiOk) {
+    process.exit(1);
+  }
+
+  console.log('\nSwagger route verification passed.');
+}
+
+run();

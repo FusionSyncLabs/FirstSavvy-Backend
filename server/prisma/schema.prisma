@@ -1,0 +1,1717 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                                  String                   @id @default(uuid()) @db.Uuid
+  email                               String                   @unique @db.VarChar(320)
+  password_hash                       String?
+  full_name                           String?                  @db.VarChar(255)
+  avatar_url                          String?
+  verified_at                         DateTime?                @db.Timestamptz(6)
+  google_id                           String?                  @unique @db.VarChar(255)
+  refresh_token_version               Int                      @default(0)
+  created_at                          DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at                          DateTime                 @updatedAt @db.Timestamptz(6)
+  deleted_at                          DateTime?                @db.Timestamptz(6)
+  password_reset_token_hash           String?                  @db.VarChar(128)
+  referral_code                       String?                  @db.VarChar(50)
+  user_name                           String                   @unique @db.VarChar(40)
+  unique_id                           String                   @unique @db.VarChar(20)
+  phone_number                        String?                  @unique @db.VarChar(20)
+  phone_verified_at                   DateTime?                @db.Timestamptz(6)
+  two_factor_enabled                  Boolean                  @default(false)
+  two_factor_method                   String?                  @db.VarChar(50)
+  two_factor_secret                   String?                  @db.VarChar(255)
+  two_factor_backup_codes             String[]                 @default([])
+  allowance_schedules_created         AllowanceSchedule[]      @relation("AllowanceCreatedBy")
+  audit_logs                          AuditLog[]
+  calendar_notifications_acknowledged CalendarNotification[]   @relation("CalendarNotificationAcknowledgedBy")
+  child_profiles_as_parent            ChildProfile[]           @relation("ChildParentUser")
+  child_transactions_approved         ChildTransaction[]       @relation("ChildTransactionApprovedBy")
+  configuration_changes               ConfigurationChangeLog[]
+  credit_verifications                CreditVerification[]
+  documents_uploaded                  Document[]
+  journal_entries_created             JournalEntry[]           @relation("JournalEntryCreatedBy")
+  journal_entry_attachments           JournalEntryAttachment[]
+  notifications_read                  Notification[]           @relation("NotificationReadBy")
+  notifications_received              Notification[]           @relation("NotificationRecipient")
+  otp_verifications                   OtpVerification[]
+  parent_access_grants                ParentAccessGrant[]      @relation("ParentAccessGrantedBy")
+  memberships                         ProfileMembership[]
+  profile_tabs                        ProfileTab[]
+  owned_profiles                      Profile?                 @relation("ProfileOwner")
+  protected_configs_created           ProtectedConfiguration[] @relation("ProtectedConfigCreatedBy")
+  protected_configs_updated           ProtectedConfiguration[] @relation("ProtectedConfigUpdatedBy")
+  recurring_schedules_created         RecurringSchedule[]      @relation("RecurringScheduleCreatedBy")
+  referrals                           Referral[]
+  reward_redemptions_approved         RewardRedemption[]       @relation("RewardRedemptionApprovedBy")
+  reward_redemptions_fulfilled        RewardRedemption[]       @relation("RewardRedemptionFulfilledBy")
+  rewards_created                     Reward[]                 @relation("RewardCreatedBy")
+  secret_keys                         SecretKey[]
+  task_completions_reviewed           TaskCompletion[]         @relation("TaskCompletionReviewedBy")
+  tasks_approved                      Task[]                   @relation("TaskApprovedBy")
+  tasks_created                       Task[]                   @relation("TaskCreatedBy")
+  user_setting                        UserSetting?
+  vault_items                         VaultItem[]
+  vault_shares_sent                   VaultShare[]             @relation("VaultShareSender")
+  vault_shares_received               VaultShare[]             @relation("VaultShareRecipient")
+  phone_verifications                 PhoneVerification[]
+  two_factor_verifications            TwoFactorVerification[]
+
+  @@index([user_name])
+  @@index([unique_id])
+  @@index([deleted_at])
+  @@index([referral_code])
+  @@index([phone_number])
+  @@index([two_factor_enabled])
+  @@map("users")
+}
+
+model OtpVerification {
+  id         String                @id @default(uuid()) @db.Uuid
+  otp        String
+  email      String                @db.VarChar(320)
+  expires_at DateTime              @db.Timestamptz(6)
+  attempts   Int?                  @default(0)
+  created_at DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at DateTime              @updatedAt @db.Timestamptz(6)
+  status     OtpVerificationStatus @default(pending)
+  user_id    String                @db.Uuid
+  user       User                  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([otp])
+  @@map("otp_verifications")
+}
+
+model PhoneVerification {
+  id         String                   @id @default(uuid()) @db.Uuid
+  phone      String                   @db.VarChar(20)
+  code       String                   @db.VarChar(6)
+  expires_at DateTime                 @db.Timestamptz(6)
+  attempts   Int?                     @default(0)
+  created_at DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at DateTime                 @updatedAt @db.Timestamptz(6)
+  status     PhoneVerificationStatus  @default(pending)
+  user_id    String?                  @db.Uuid
+  user       User?                    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([phone])
+  @@index([code])
+  @@index([status])
+  @@map("phone_verifications")
+}
+
+model TwoFactorVerification {
+  id         String                  @id @default(uuid()) @db.Uuid
+  user_id    String                  @db.Uuid
+  method     String                  @db.VarChar(50)
+  code       String                  @db.VarChar(6)
+  expires_at DateTime                @db.Timestamptz(6)
+  attempts   Int                     @default(0)
+  verified   Boolean                 @default(false)
+  created_at DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at DateTime                @updatedAt @db.Timestamptz(6)
+  user       User                    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([code])
+  @@index([expires_at])
+  @@map("two_factor_verifications")
+}
+
+model SecretKey {
+  id           String    @id @default(uuid()) @db.Uuid
+  user_id      String    @db.Uuid
+  key_value    String    @unique @db.VarChar(64)
+  name         String?   @db.VarChar(100)
+  is_active    Boolean   @default(true)
+  expires_at   DateTime? @db.Timestamptz(6)
+  last_used_at DateTime? @db.Timestamptz(6)
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime  @updatedAt @db.Timestamptz(6)
+  deleted_at   DateTime? @db.Timestamptz(6)
+  user         User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([key_value])
+  @@index([is_active])
+  @@index([deleted_at])
+  @@map("secret_keys")
+}
+
+model Profile {
+  id                         String                    @id @default(uuid()) @db.Uuid
+  owner_user_id              String                    @unique(map: "profiles_one_default_per_owner_idx", where: raw("((is_default = true) AND (deleted_at IS NULL))")) @db.Uuid
+  name                       String                    @db.VarChar(255)
+  display_name               String?                   @db.VarChar(255)
+  profile_type               ProfileType               @default(personal)
+  family_role                String?                   @db.VarChar(100)
+  avatar_url                 String?
+  color                      String?                   @db.VarChar(32)
+  is_default                 Boolean                   @default(false)
+  is_active                  Boolean                   @default(true)
+  metadata                   Json                      @default("{}")
+  created_at                 DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at                 DateTime                  @updatedAt @db.Timestamptz(6)
+  deleted_at                 DateTime?                 @db.Timestamptz(6)
+  unique_id                  String                    @unique @db.VarChar(20)
+  audit_logs                 AuditLog[]
+  budgets                    Budget[]
+  calendar_notifications     CalendarNotification[]
+  child_profiles             ChildProfile[]
+  configuration_changes      ConfigurationChangeLog[]
+  contacts                   Contact[]
+  credit_scores              CreditScore[]
+  credit_verifications       CreditVerification?
+  csv_mapping_configs        CsvColumnMappingConfig[]
+  documents                  Document[]
+  events                     Event[]
+  financial_goals            FinancialGoal[]
+  goal_contributions         GoalContribution[]
+  journal_entries            JournalEntry[]
+  journal_entry_attachments  JournalEntryAttachment[]
+  meal_plans                 MealPlan[]
+  notifications              Notification[]
+  parent_access_grants       ParentAccessGrant[]
+  payment_reminders          PaymentReminder[]
+  plaid_accounts             PlaidAccount[]
+  plaid_items                PlaidItem[]
+  profile_invitations_sent   ProfileInvitation[]       @relation("ProfileInvitationsSent")
+  memberships                ProfileMembership[]
+  profile_shares_granted     ProfileShare[]            @relation("ProfileShareGrantedBy")
+  profile_shares_received    ProfileShare[]            @relation("ProfileShareReceivedBy")
+  profile_tabs               ProfileTab[]
+  view_preferences           ProfileViewPreference[]
+  owner                      User                      @relation("ProfileOwner", fields: [owner_user_id], references: [id])
+  protected_configs          ProtectedConfiguration[]
+  recipes                    Recipe[]
+  recurring_occurrences      RecurringOccurrence[]
+  recurring_schedules        RecurringSchedule[]
+  rewards                    Reward[]
+  task_templates             TaskTemplate[]
+  tasks                      Task[]
+  transaction_rules          TransactionRule[]
+  transaction_splits         TransactionSplit[]
+  transactions               Transaction[]
+  transfer_match_suggestions TransferMatchSuggestion[]
+  chart_of_accounts          UserChartOfAccount[]
+  vault_encryption_key       VaultEncryptionKey?
+  vault_folders              VaultFolder[]
+  vault_items                VaultItem[]
+
+  @@index([owner_user_id])
+  @@index([unique_id])
+  @@index([owner_user_id, is_default])
+  @@index([deleted_at])
+  @@map("profiles")
+}
+
+model ProfileMembership {
+  id         String         @id @default(uuid()) @db.Uuid
+  user_id    String         @db.Uuid
+  profile_id String         @db.Uuid
+  role       MembershipRole @default(owner)
+  created_at DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at DateTime       @updatedAt @db.Timestamptz(6)
+  profile    Profile        @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+  user       User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, profile_id])
+  @@index([profile_id])
+  @@index([user_id])
+  @@map("profile_memberships")
+}
+
+model ProfileTab {
+  id            String   @id @default(uuid()) @db.Uuid
+  owner_user_id String   @db.Uuid
+  profile_id    String   @db.Uuid
+  display_name  String?  @db.VarChar(255)
+  is_active     Boolean  @default(true)
+  sort_order    Int      @default(0)
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @updatedAt @db.Timestamptz(6)
+  owner         User     @relation(fields: [owner_user_id], references: [id], onDelete: Cascade)
+  profile       Profile  @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+
+  @@unique([owner_user_id, profile_id])
+  @@index([owner_user_id, sort_order])
+  @@map("profile_tabs")
+}
+
+model ProfileViewPreference {
+  id          String   @id @default(uuid()) @db.Uuid
+  profile_id  String   @db.Uuid
+  view_name   String   @db.VarChar(100)
+  preferences Json     @default("{}")
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime @updatedAt @db.Timestamptz(6)
+  profile     Profile  @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+
+  @@unique([profile_id, view_name])
+  @@map("profile_view_preferences")
+}
+
+model UserSetting {
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String   @unique @db.Uuid
+  settings   Json     @default("{}")
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @updatedAt @db.Timestamptz(6)
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}
+
+model ChildProfile {
+  id                    String               @id @default(uuid()) @db.Uuid
+  parent_profile_id     String               @db.Uuid
+  parent_user_id        String?              @db.Uuid
+  auth_user_id          String?              @db.Uuid
+  first_name            String?              @db.VarChar(100)
+  last_name             String?              @db.VarChar(100)
+  display_name          String?              @db.VarChar(255)
+  name                  String?              @db.VarChar(255)
+  email                 String?              @db.VarChar(320)
+  username              String?              @unique @db.VarChar(100)
+  pin_hash              String?
+  pin_length            Int                  @default(4)
+  birth_date            DateTime?            @db.Date
+  gender                String?              @db.VarChar(50)
+  avatar_url            String?
+  profile_level         String               @default("beginner") @db.VarChar(50)
+  family_role           ChildFamilyRole      @default(child)
+  points_balance        Int                  @default(0)
+  cash_balance          Decimal              @default(0) @db.Decimal(10, 2)
+  stars_balance         Int                  @default(0)
+  stars_pending         Int                  @default(0)
+  last_login_at         DateTime?            @db.Timestamptz(6)
+  failed_login_attempts Int                  @default(0)
+  locked_until          DateTime?            @db.Timestamptz(6)
+  is_active             Boolean              @default(true)
+  metadata              Json                 @default("{}")
+  created_at            DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime             @updatedAt @db.Timestamptz(6)
+  deleted_at            DateTime?            @db.Timestamptz(6)
+  unique_id             String               @unique @db.VarChar(20)
+  allowance_schedules   AllowanceSchedule[]
+  achievements          ChildAchievement[]
+  login_audit_logs      ChildLoginAuditLog[]
+  parent_profile        Profile              @relation(fields: [parent_profile_id], references: [id], onDelete: Cascade)
+  parent_user           User?                @relation("ChildParentUser", fields: [parent_user_id], references: [id])
+  child_transactions    ChildTransaction[]
+  financial_goals       FinancialGoal[]
+  parent_access_grants  ParentAccessGrant[]
+  profile_invitations   ProfileInvitation[]
+  profile_shares        ProfileShare[]
+  reward_redemptions    RewardRedemption[]
+  rewards               Reward[]             @relation("RewardAssignedChild")
+  rewards_redeemed      Reward[]             @relation("RewardRedeemedChild")
+  task_completions      TaskCompletion[]
+  task_assignments      TaskAssignment[]
+  tasks                 Task[]
+
+  @@index([parent_profile_id])
+  @@index([parent_user_id])
+  @@index([unique_id])
+  @@index([deleted_at])
+  @@map("child_profiles")
+}
+
+model ParentAccessGrant {
+  id                String       @id @default(uuid()) @db.Uuid
+  child_profile_id  String       @db.Uuid
+  parent_profile_id String       @db.Uuid
+  granted_by_id     String?      @db.Uuid
+  role              String       @default("co_parent") @db.VarChar(50)
+  is_active         Boolean      @default(true)
+  created_at        DateTime     @default(now()) @db.Timestamptz(6)
+  revoked_at        DateTime?    @db.Timestamptz(6)
+  child_profile     ChildProfile @relation(fields: [child_profile_id], references: [id], onDelete: Cascade)
+  granted_by        User?        @relation("ParentAccessGrantedBy", fields: [granted_by_id], references: [id])
+  parent_profile    Profile      @relation(fields: [parent_profile_id], references: [id], onDelete: Cascade)
+
+  @@unique([child_profile_id, parent_profile_id])
+  @@index([parent_profile_id])
+  @@map("parent_access_grants")
+}
+
+model ProfileInvitation {
+  id                    String           @id @default(uuid()) @db.Uuid
+  child_profile_id      String           @db.Uuid
+  invited_email         String           @db.VarChar(320)
+  invitation_token      String           @unique @db.VarChar(255)
+  invitation_expires_at DateTime         @db.Timestamptz(6)
+  invited_by_profile_id String           @db.Uuid
+  status                InvitationStatus @default(pending)
+  created_at            DateTime         @default(now()) @db.Timestamptz(6)
+  accepted_at           DateTime?        @db.Timestamptz(6)
+  child_profile         ChildProfile     @relation(fields: [child_profile_id], references: [id], onDelete: Cascade)
+  invited_by_profile    Profile          @relation("ProfileInvitationsSent", fields: [invited_by_profile_id], references: [id], onDelete: Cascade)
+
+  @@index([child_profile_id])
+  @@index([invited_email])
+  @@index([invited_by_profile_id])
+  @@index([status, invitation_expires_at])
+  @@map("profile_invitations")
+}
+
+model ProfileShare {
+  id                     String                 @id @default(uuid()) @db.Uuid
+  child_profile_id       String                 @db.Uuid
+  shared_with_profile_id String                 @db.Uuid
+  granted_by_profile_id  String                 @db.Uuid
+  is_active              Boolean                @default(true)
+  created_at             DateTime               @default(now()) @db.Timestamptz(6)
+  revoked_at             DateTime?              @db.Timestamptz(6)
+  permission_level       ProfileSharePermission @default(view_only)
+  child_profile          ChildProfile           @relation(fields: [child_profile_id], references: [id], onDelete: Cascade)
+  granted_by_profile     Profile                @relation("ProfileShareGrantedBy", fields: [granted_by_profile_id], references: [id])
+  shared_with_profile    Profile                @relation("ProfileShareReceivedBy", fields: [shared_with_profile_id], references: [id], onDelete: Cascade)
+
+  @@unique([child_profile_id, shared_with_profile_id])
+  @@index([shared_with_profile_id])
+  @@index([is_active])
+  @@map("profile_shares")
+}
+
+model ChartOfAccountsTemplate {
+  id             String               @id @default(uuid()) @db.Uuid
+  account_number Int                  @unique
+  account_name   String               @db.VarChar(255)
+  display_name   String?              @db.VarChar(255)
+  class          AccountClass
+  account_type   String?              @db.VarChar(100)
+  parent_number  Int?
+  is_system      Boolean              @default(true)
+  icon           String?              @db.VarChar(100)
+  color          String?              @db.VarChar(32)
+  created_at     DateTime             @default(now()) @db.Timestamptz(6)
+  account_detail String?              @db.VarChar(100)
+  sort_order     Int                  @default(0)
+  is_editable    Boolean              @default(true)
+  user_accounts  UserChartOfAccount[]
+
+  @@index([class, sort_order])
+  @@map("chart_of_accounts_templates")
+}
+
+model UserChartOfAccount {
+  id                                      String                   @id @default(uuid()) @db.Uuid
+  profile_id                              String                   @db.Uuid
+  template_account_number                 Int?
+  account_number                          Int?
+  account_name                            String?                  @db.VarChar(255)
+  display_name                            String?                  @db.VarChar(255)
+  class                                   AccountClass
+  account_type                            String?                  @db.VarChar(100)
+  parent_account_id                       String?                  @db.Uuid
+  institution_name                        String?                  @db.VarChar(255)
+  account_mask                            String?                  @db.VarChar(32)
+  current_balance                         Decimal                  @default(0) @db.Decimal(14, 2)
+  available_balance                       Decimal?                 @db.Decimal(14, 2)
+  opening_balance                         Decimal?                 @db.Decimal(14, 2)
+  include_in_cash_balance                 Boolean                  @default(false)
+  is_active                               Boolean                  @default(true)
+  is_system                               Boolean                  @default(false)
+  icon                                    String?                  @db.VarChar(100)
+  color                                   String?                  @db.VarChar(32)
+  metadata                                Json                     @default("{}")
+  created_at                              DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at                              DateTime                 @updatedAt @db.Timestamptz(6)
+  deleted_at                              DateTime?                @db.Timestamptz(6)
+  account_detail                          String?                  @db.VarChar(100)
+  is_user_created                         Boolean                  @default(false)
+  opening_balance_locked                  Boolean                  @default(false)
+  bank_current_balance                    Decimal?                 @db.Decimal(14, 2)
+  bank_available_balance                  Decimal?                 @db.Decimal(14, 2)
+  bank_balance_synced_at                  DateTime?                @db.Timestamptz(6)
+  plaid_import_start_date                 DateTime?                @db.Date
+  reconciliation_variance                 Decimal?                 @default(0) @db.Decimal(14, 2)
+  last_reconciled_at                      DateTime?                @db.Timestamptz(6)
+  budgets                                 Budget[]
+  linked_goals                            FinancialGoal[]
+  journal_entry_lines                     JournalEntryLine[]
+  plaid_account                           PlaidAccount?
+  recurring_schedules_as_bank_account     RecurringSchedule[]      @relation("RecurringScheduleBankAccount")
+  recurring_schedules_as_category_account RecurringSchedule[]      @relation("RecurringScheduleCategoryAccount")
+  transaction_rules                       TransactionRule[]
+  transaction_splits                      TransactionSplit[]
+  bank_transactions                       Transaction[]            @relation("TransactionBankAccount")
+  category_transactions                   Transaction[]            @relation("TransactionCategoryAccount")
+  parent_account                          UserChartOfAccount?      @relation("AccountHierarchy", fields: [parent_account_id], references: [id])
+  child_accounts                          UserChartOfAccount[]     @relation("AccountHierarchy")
+  profile                                 Profile                  @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+  template                                ChartOfAccountsTemplate? @relation(fields: [template_account_number], references: [account_number])
+
+  @@index([profile_id])
+  @@index([profile_id, is_active])
+  @@index([parent_account_id])
+  @@index([deleted_at])
+  @@map("user_chart_of_accounts")
+}
+
+model PlaidItem {
+  id                  String         @id @default(uuid()) @db.Uuid
+  profile_id          String         @db.Uuid
+  plaid_item_id       String         @unique @db.VarChar(255)
+  access_token        String
+  institution_id      String?        @db.VarChar(255)
+  institution_name    String?        @db.VarChar(255)
+  products            Json           @default("[]")
+  available_products  Json           @default("[]")
+  billed_products     Json           @default("[]")
+  transactions_cursor String?
+  status              String         @default("active") @db.VarChar(50)
+  last_synced_at      DateTime?      @db.Timestamptz(6)
+  error               Json?
+  metadata            Json           @default("{}")
+  created_at          DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime       @updatedAt @db.Timestamptz(6)
+  deleted_at          DateTime?      @db.Timestamptz(6)
+  accounts            PlaidAccount[]
+  profile             Profile        @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+
+  @@index([profile_id])
+  @@index([profile_id, status])
+  @@index([deleted_at])
+  @@map("plaid_items")
+}
+
+model PlaidAccount {
+  id                       String              @id @default(uuid()) @db.Uuid
+  profile_id               String              @db.Uuid
+  plaid_item_id            String              @db.Uuid
+  plaid_account_id         String              @unique @db.VarChar(255)
+  user_chart_account_id    String?             @unique @db.Uuid
+  name                     String              @db.VarChar(255)
+  official_name            String?             @db.VarChar(255)
+  mask                     String?             @db.VarChar(32)
+  type                     String?             @db.VarChar(100)
+  subtype                  String?             @db.VarChar(100)
+  verification_status      String?             @db.VarChar(100)
+  current_balance          Decimal?            @db.Decimal(14, 2)
+  available_balance        Decimal?            @db.Decimal(14, 2)
+  iso_currency_code        String?             @db.VarChar(12)
+  unofficial_currency_code String?             @db.VarChar(32)
+  is_active                Boolean             @default(true)
+  metadata                 Json                @default("{}")
+  created_at               DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime            @updatedAt @db.Timestamptz(6)
+  deleted_at               DateTime?           @db.Timestamptz(6)
+  plaid_item               PlaidItem           @relation(fields: [plaid_item_id], references: [id], onDelete: Cascade)
+  profile                  Profile             @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+  user_chart_account       UserChartOfAccount? @relation(fields: [user_chart_account_id], references: [id])
+
+  @@index([profile_id])
+  @@index([plaid_item_id])
+  @@index([user_chart_account_id])
+  @@index([deleted_at])
+  @@map("plaid_accounts")
+}
+
+model Transaction {
+  id                    String                    @id @default(uuid()) @db.Uuid
+  profile_id            String                    @db.Uuid
+  bank_account_id       String?                   @db.Uuid
+  category_account_id   String?                   @db.Uuid
+  contact_id            String?                   @db.Uuid
+  journal_entry_id      String?                   @db.Uuid
+  date                  DateTime                  @db.Date
+  posted_date           DateTime?                 @db.Date
+  description           String                    @db.VarChar(500)
+  original_description  String?                   @db.VarChar(500)
+  amount                Decimal                   @db.Decimal(14, 2)
+  transaction_type      TransactionType?
+  status                TransactionStatus         @default(pending)
+  memo                  String?
+  check_number          String?                   @db.VarChar(50)
+  source                String?                   @db.VarChar(100)
+  external_id           String?                   @db.VarChar(255)
+  imported_at           DateTime?                 @db.Timestamptz(6)
+  metadata              Json                      @default("{}")
+  created_at            DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime                  @updatedAt @db.Timestamptz(6)
+  deleted_at            DateTime?                 @db.Timestamptz(6)
+  goal_contributions    GoalContribution?
+  source_journal_entry  JournalEntry?             @relation("JournalEntrySourceTransaction")
+  calendar_occurrence   RecurringOccurrence?      @relation("OccurrenceTransaction")
+  splits                TransactionSplit[]
+  bank_account          UserChartOfAccount?       @relation("TransactionBankAccount", fields: [bank_account_id], references: [id])
+  category_account      UserChartOfAccount?       @relation("TransactionCategoryAccount", fields: [category_account_id], references: [id])
+  contact               Contact?                  @relation(fields: [contact_id], references: [id])
+  journal_entry         JournalEntry?             @relation(fields: [journal_entry_id], references: [id])
+  profile               Profile                   @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+  transfer_matches_as_1 TransferMatchSuggestion[] @relation("TransferMatchTx1")
+  transfer_matches_as_2 TransferMatchSuggestion[] @relation("TransferMatchTx2")
+
+  @@index([profile_id, date(sort: Desc)])
+  @@index([profile_id, status])
+  @@index([profile_id, deleted_at])
+  @@index([bank_account_id])
+  @@index([category_account_id])
+  @@index([journal_entry_id])
+  @@index([profile_id, external_id])
+  @@map("transactions")
+}
+
+model Budget {
+  id               String              @id @default(uuid()) @db.Uuid
+  profile_id       String              @db.Uuid
+  chart_account_id String?             @db.Uuid
+  name             String?             @db.VarChar(255)
+  amount           Decimal             @default(0) @db.Decimal(14, 2)
+  cadence          String              @default("monthly") @db.VarChar(50)
+  month            Int?
+  year             Int?
+  period_start     DateTime?           @db.Date
+  period_end       DateTime?           @db.Date
+  rollover_enabled Boolean             @default(false)
+  rollover_amount  Decimal             @default(0) @db.Decimal(14, 2)
+  parent_budget_id String?             @db.Uuid
+  is_active        Boolean             @default(true)
+  metadata         Json                @default("{}")
+  created_at       DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime            @updatedAt @db.Timestamptz(6)
+  chart_account    UserChartOfAccount? @relation(fields: [chart_account_id], references: [id])
+  parent_budget    Budget?             @relation("BudgetHierarchy", fields: [parent_budget_id], references: [id])
+  child_budgets    Budget[]            @relation("BudgetHierarchy")
+  profile          Profile             @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+
+  @@index([profile_id])
+  @@index([profile_id, year, month])
+  @@index([chart_account_id])
+  @@map("budgets")
+}
+
+model FinancialGoal {
+  id                String             @id @default(uuid()) @db.Uuid
+  profile_id        String             @db.Uuid
+  child_profile_id  String?            @db.Uuid
+  linked_account_id String             @db.Uuid
+  name              String             @db.VarChar(255)
+  description       String?
+  target_amount     Decimal            @db.Decimal(14, 2)
+  target_date       DateTime?          @db.Date
+  icon              String?            @db.VarChar(100)
+  color             String?            @db.VarChar(32)
+  status            GoalStatus         @default(active)
+  metadata          Json               @default("{}")
+  created_at        DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime           @updatedAt @db.Timestamptz(6)
+  deleted_at        DateTime?          @db.Timestamptz(6)
+  child_profile     ChildProfile?      @relation(fields: [child_profile_id], references: [id])
+  linked_account    UserChartOfAccount @relation(fields: [linked_account_id], references: [id])
+  profile           Profile            @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+  contributions     GoalContribution[]
+
+  @@index([profile_id])
+  @@index([profile_id, status])
+  @@index([profile_id, target_date])
+  @@index([profile_id, deleted_at])
+  @@index([linked_account_id])
+  @@index([child_profile_id])
+  @@map("financial_goals")
+}
+
+model GoalContribution {
+  id                String        @id @default(uuid()) @db.Uuid
+  goal_id           String        @db.Uuid
+  profile_id        String        @db.Uuid
+  amount            Decimal       @db.Decimal(14, 2)
+  contribution_date DateTime      @db.Date
+  transaction_id    String        @unique(map: "goal_contributions_active_transaction_id_key", where: raw("(deleted_at IS NULL)")) @db.Uuid
+  notes             String?
+  metadata          Json          @default("{}")
+  created_at        DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime      @updatedAt @db.Timestamptz(6)
+  deleted_at        DateTime?     @db.Timestamptz(6)
+  goal              FinancialGoal @relation(fields: [goal_id], references: [id], onDelete: Cascade)
+  profile           Profile       @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+  transaction       Transaction   @relation(fields: [transaction_id], references: [id])
+
+  @@index([goal_id])
+  @@index([profile_id])
+  @@index([goal_id, contribution_date])
+  @@index([transaction_id])
+  @@map("goal_contributions")
+}
+
+model Contact {
+  id                  String              @id @default(uuid()) @db.Uuid
+  profile_id          String              @db.Uuid
+  name                String              @db.VarChar(255)
+  contact_type        String?             @db.VarChar(100)
+  email               String?             @db.VarChar(320)
+  phone               String?             @db.VarChar(50)
+  website             String?
+  avatar_url          String?
+  group_name          String?             @db.VarChar(100)
+  notes               String?
+  metadata            Json                @default("{}")
+  created_at          DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime            @updatedAt @db.Timestamptz(6)
+  deleted_at          DateTime?           @db.Timestamptz(6)
+  profile             Profile             @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+  journal_entry_lines JournalEntryLine[]
+  recurring_schedules RecurringSchedule[]
+  transaction_rules   TransactionRule[]
+  transactions        Transaction[]
+  transaction_splits  TransactionSplit[]
+
+  @@index([profile_id])
+  @@index([profile_id, deleted_at])
+  @@map("contacts")
+}
+
+model TransactionRule {
+  id                  String              @id @default(uuid()) @db.Uuid
+  profile_id          String              @db.Uuid
+  name                String              @db.VarChar(255)
+  pattern             String?
+  pattern_type        String?             @db.VarChar(50)
+  category_account_id String?             @db.Uuid
+  contact_id          String?             @db.Uuid
+  priority            Int                 @default(0)
+  is_active           Boolean             @default(true)
+  apply_count         Int                 @default(0)
+  last_applied_at     DateTime?           @db.Timestamptz(6)
+  conditions          Json                @default("{}")
+  actions             Json                @default("{}")
+  created_at          DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime            @updatedAt @db.Timestamptz(6)
+  category_account    UserChartOfAccount? @relation(fields: [category_account_id], references: [id])
+  contact             Contact?            @relation(fields: [contact_id], references: [id])
+  profile             Profile             @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+
+  @@index([profile_id, is_active, priority(sort: Desc)])
+  @@map("transaction_rules")
+}
+
+model TransactionSplit {
+  id                  String              @id @default(uuid()) @db.Uuid
+  transaction_id      String              @db.Uuid
+  profile_id          String              @db.Uuid
+  category_account_id String?             @db.Uuid
+  contact_id          String?             @db.Uuid
+  amount              Decimal             @db.Decimal(14, 2)
+  memo                String?
+  created_at          DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime            @updatedAt @db.Timestamptz(6)
+  category_account    UserChartOfAccount? @relation(fields: [category_account_id], references: [id])
+  contact             Contact?            @relation(fields: [contact_id], references: [id], onDelete: SetNull)
+  profile             Profile             @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+  transaction         Transaction         @relation(fields: [transaction_id], references: [id], onDelete: Cascade)
+
+  @@index([transaction_id])
+  @@index([profile_id])
+  @@index([contact_id])
+  @@map("transaction_splits")
+}
+
+model JournalEntry {
+  id                    String                   @id @default(uuid()) @db.Uuid
+  profile_id            String                   @db.Uuid
+  entry_number          Int?
+  entry_date            DateTime                 @db.Date
+  description           String                   @db.VarChar(500)
+  memo                  String?
+  source                String?                  @db.VarChar(100)
+  source_transaction_id String?                  @unique @db.Uuid
+  status                JournalEntryStatus       @default(posted)
+  created_by_user_id    String?                  @db.Uuid
+  posted_at             DateTime?                @db.Timestamptz(6)
+  created_at            DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime                 @updatedAt @db.Timestamptz(6)
+  deleted_at            DateTime?                @db.Timestamptz(6)
+  created_by            User?                    @relation("JournalEntryCreatedBy", fields: [created_by_user_id], references: [id])
+  profile               Profile                  @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+  source_transaction    Transaction?             @relation("JournalEntrySourceTransaction", fields: [source_transaction_id], references: [id])
+  attachments           JournalEntryAttachment[]
+  lines                 JournalEntryLine[]
+  linked_transactions   Transaction[]
+
+  @@index([profile_id, entry_date(sort: Desc)])
+  @@index([profile_id, entry_number])
+  @@index([deleted_at])
+  @@map("journal_entries")
+}
+
+model JournalEntryLine {
+  id               String             @id @default(uuid()) @db.Uuid
+  journal_entry_id String             @db.Uuid
+  account_id       String             @db.Uuid
+  contact_id       String?            @db.Uuid
+  description      String?            @db.VarChar(500)
+  debit            Decimal            @default(0) @db.Decimal(14, 2)
+  credit           Decimal            @default(0) @db.Decimal(14, 2)
+  created_at       DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime           @updatedAt @db.Timestamptz(6)
+  account          UserChartOfAccount @relation(fields: [account_id], references: [id])
+  contact          Contact?           @relation(fields: [contact_id], references: [id])
+  journal_entry    JournalEntry       @relation(fields: [journal_entry_id], references: [id], onDelete: Cascade)
+
+  @@index([journal_entry_id])
+  @@index([account_id])
+  @@map("journal_entry_lines")
+}
+
+model JournalEntryAttachment {
+  id               String       @id @default(uuid()) @db.Uuid
+  journal_entry_id String       @db.Uuid
+  profile_id       String       @db.Uuid
+  file_name        String       @db.VarChar(255)
+  file_size        Int
+  file_type        String       @db.VarChar(100)
+  storage_path     String
+  uploaded_by      String       @db.Uuid
+  created_at       DateTime     @default(now()) @db.Timestamptz(6)
+  journal_entry    JournalEntry @relation(fields: [journal_entry_id], references: [id], onDelete: Cascade)
+  profile          Profile      @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+  uploader         User         @relation(fields: [uploaded_by], references: [id])
+
+  @@index([journal_entry_id])
+  @@map("journal_entry_attachments")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  profile_id  String?  @db.Uuid
+  user_id     String?  @db.Uuid
+  entity_type String   @db.VarChar(100)
+  entity_id   String?  @db.Uuid
+  action      String   @db.VarChar(100)
+  before_data Json?
+  after_data  Json?
+  reason      String?
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  profile     Profile? @relation(fields: [profile_id], references: [id])
+  user        User?    @relation(fields: [user_id], references: [id])
+
+  @@index([profile_id, created_at(sort: Desc)])
+  @@index([entity_type, entity_id])
+  @@index([user_id])
+  @@map("audit_logs")
+}
+
+model CsvColumnMappingConfig {
+  id               String   @id @default(uuid()) @db.Uuid
+  profile_id       String   @db.Uuid
+  institution_name String   @db.VarChar(255)
+  column_mappings  Json     @default("{}")
+  date_format      String   @default("auto") @db.VarChar(50)
+  amount_type      String   @default("auto") @db.VarChar(50)
+  debit_column     String   @default("") @db.VarChar(100)
+  credit_column    String   @default("") @db.VarChar(100)
+  balance_column   String   @default("") @db.VarChar(100)
+  use_count        Int      @default(1)
+  last_used_at     DateTime @default(now()) @db.Timestamptz(6)
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime @updatedAt @db.Timestamptz(6)
+  profile          Profile  @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+
+  @@index([profile_id])
+  @@index([profile_id, institution_name])
+  @@map("csv_column_mapping_configs")
+}
+
+model Task {
+  id                   String             @id @default(uuid()) @db.Uuid
+  profile_id           String             @db.Uuid
+  assigned_to_child_id String?            @db.Uuid
+  title                String             @db.VarChar(255)
+  description          String?
+  points_value         Int                @default(0)
+  star_reward          Int                @default(1)
+  status               TaskStatus         @default(pending)
+  due_date             DateTime?          @db.Timestamptz(6)
+  requires_approval    Boolean            @default(true)
+  created_by_user_id   String             @db.Uuid
+  approved_by_user_id  String?            @db.Uuid
+  completed_at         DateTime?          @db.Timestamptz(6)
+  approved_at          DateTime?          @db.Timestamptz(6)
+  rejected_at          DateTime?          @db.Timestamptz(6)
+  rejection_reason     String?
+  bonus_multiplier     Decimal            @default(1.0) @db.Decimal(3, 2)
+  streak_count         Int                @default(0)
+  icon                 String?            @db.VarChar(100)
+  color                String?            @db.VarChar(32)
+  is_active            Boolean            @default(true)
+  metadata             Json               @default("{}")
+  created_at           DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime           @updatedAt @db.Timestamptz(6)
+  child_transactions   ChildTransaction[]
+  assignments          TaskAssignment[]
+  completions          TaskCompletion[]
+  approved_by          User?              @relation("TaskApprovedBy", fields: [approved_by_user_id], references: [id])
+  assigned_child       ChildProfile?      @relation(fields: [assigned_to_child_id], references: [id], onDelete: Cascade)
+  created_by           User               @relation("TaskCreatedBy", fields: [created_by_user_id], references: [id])
+  profile              Profile            @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+
+  @@index([profile_id])
+  @@index([assigned_to_child_id])
+  @@index([profile_id, status])
+  @@index([due_date])
+  @@map("tasks")
+}
+
+model TaskAssignment {
+  id               String       @id @default(uuid()) @db.Uuid
+  task_id          String       @db.Uuid
+  child_profile_id String       @db.Uuid
+  status           TaskStatus   @default(pending)
+  completed_at     DateTime?    @db.Timestamptz(6)
+  approved_at      DateTime?    @db.Timestamptz(6)
+  rejected_at      DateTime?    @db.Timestamptz(6)
+  is_active        Boolean      @default(true)
+  created_at       DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime     @updatedAt @db.Timestamptz(6)
+  child_profile    ChildProfile @relation(fields: [child_profile_id], references: [id], onDelete: Cascade)
+  task             Task         @relation(fields: [task_id], references: [id], onDelete: Cascade)
+
+  @@unique([task_id, child_profile_id])
+  @@index([child_profile_id, status])
+  @@map("task_assignments")
+}
+
+model TaskTemplate {
+  id                 String   @id @default(uuid()) @db.Uuid
+  profile_id         String?  @db.Uuid
+  title              String   @db.VarChar(255)
+  description        String?
+  suggested_points   Int      @default(0)
+  suggested_stars    Int      @default(1)
+  category           String?  @db.VarChar(100)
+  icon               String?  @db.VarChar(100)
+  color              String?  @db.VarChar(32)
+  age_group          String?  @db.VarChar(50)
+  is_public          Boolean  @default(false)
+  created_by_user_id String?  @db.Uuid
+  times_used         Int      @default(0)
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+  profile            Profile? @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+
+  @@index([is_public])
+  @@map("task_templates")
+}
+
+model TaskCompletion {
+  id               String           @id @default(uuid()) @db.Uuid
+  task_id          String           @db.Uuid
+  child_profile_id String           @db.Uuid
+  status           CompletionStatus @default(pending)
+  stars_earned     Int              @default(0)
+  submission_notes String?
+  review_notes     String?
+  submitted_at     DateTime         @default(now()) @db.Timestamptz(6)
+  reviewed_at      DateTime?        @db.Timestamptz(6)
+  reviewed_by      String?          @db.Uuid
+  created_at       DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime         @updatedAt @db.Timestamptz(6)
+  child_profile    ChildProfile     @relation(fields: [child_profile_id], references: [id], onDelete: Cascade)
+  reviewer         User?            @relation("TaskCompletionReviewedBy", fields: [reviewed_by], references: [id])
+  task             Task             @relation(fields: [task_id], references: [id], onDelete: Cascade)
+
+  @@index([task_id])
+  @@index([child_profile_id])
+  @@index([status])
+  @@map("task_completions")
+}
+
+model Reward {
+  id                          String             @id @default(uuid()) @db.Uuid
+  profile_id                  String             @db.Uuid
+  assigned_to_child_id        String?            @db.Uuid
+  title                       String             @db.VarChar(255)
+  description                 String?
+  points_cost                 Int                @default(0)
+  star_cost                   Int                @default(10)
+  cash_cost                   Decimal            @default(0) @db.Decimal(10, 2)
+  category                    String?            @db.VarChar(100)
+  icon                        String?            @db.VarChar(100)
+  color                       String?            @db.VarChar(32)
+  image_url                   String?
+  is_active                   Boolean            @default(true)
+  requires_approval_threshold Int                @default(100)
+  stock_quantity              Int?
+  times_redeemed              Int                @default(0)
+  status                      RewardStatus       @default(available)
+  expires_at                  DateTime?          @db.Timestamptz(6)
+  redeemed_at                 DateTime?          @db.Timestamptz(6)
+  redeemed_by_child_id        String?            @db.Uuid
+  age_restriction             Int?
+  created_by_user_id          String             @db.Uuid
+  metadata                    Json               @default("{}")
+  created_at                  DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at                  DateTime           @updatedAt @db.Timestamptz(6)
+  child_transactions          ChildTransaction[]
+  redemptions                 RewardRedemption[]
+  assigned_child              ChildProfile?      @relation("RewardAssignedChild", fields: [assigned_to_child_id], references: [id])
+  created_by                  User               @relation("RewardCreatedBy", fields: [created_by_user_id], references: [id])
+  profile                     Profile            @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+  redeemed_by_child           ChildProfile?      @relation("RewardRedeemedChild", fields: [redeemed_by_child_id], references: [id])
+
+  @@index([profile_id])
+  @@index([assigned_to_child_id])
+  @@map("rewards")
+}
+
+model RewardRedemption {
+  id                   String       @id @default(uuid()) @db.Uuid
+  child_profile_id     String       @db.Uuid
+  reward_id            String       @db.Uuid
+  points_spent         Int          @default(0)
+  stars_spent          Int          @default(0)
+  cash_spent           Decimal      @default(0) @db.Decimal(10, 2)
+  status               RewardStatus @default(pending)
+  requested_at         DateTime     @default(now()) @db.Timestamptz(6)
+  approved_at          DateTime?    @db.Timestamptz(6)
+  approved_by_user_id  String?      @db.Uuid
+  fulfilled_at         DateTime?    @db.Timestamptz(6)
+  fulfilled_by_user_id String?      @db.Uuid
+  rejection_reason     String?
+  notes                String?
+  metadata             Json         @default("{}")
+  approved_by          User?        @relation("RewardRedemptionApprovedBy", fields: [approved_by_user_id], references: [id])
+  child_profile        ChildProfile @relation(fields: [child_profile_id], references: [id], onDelete: Cascade)
+  fulfilled_by         User?        @relation("RewardRedemptionFulfilledBy", fields: [fulfilled_by_user_id], references: [id])
+  reward               Reward       @relation(fields: [reward_id], references: [id])
+
+  @@index([child_profile_id])
+  @@index([reward_id])
+  @@index([status])
+  @@map("reward_redemptions")
+}
+
+model AllowanceSchedule {
+  id                 String             @id @default(uuid()) @db.Uuid
+  child_profile_id   String             @db.Uuid
+  amount             Decimal            @db.Decimal(10, 2)
+  frequency          AllowanceFrequency
+  mode               String             @db.VarChar(50)
+  points_amount      Int                @default(0)
+  cash_amount        Decimal            @default(0) @db.Decimal(10, 2)
+  is_active          Boolean            @default(true)
+  next_payment_date  DateTime           @db.Date
+  last_payment_date  DateTime?          @db.Date
+  created_by_user_id String             @db.Uuid
+  auto_deposit       Boolean            @default(true)
+  notes              String?
+  created_at         DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime           @updatedAt @db.Timestamptz(6)
+  child_profile      ChildProfile       @relation(fields: [child_profile_id], references: [id], onDelete: Cascade)
+  created_by         User               @relation("AllowanceCreatedBy", fields: [created_by_user_id], references: [id])
+  child_transactions ChildTransaction[]
+
+  @@index([child_profile_id])
+  @@index([next_payment_date])
+  @@map("allowance_schedules")
+}
+
+model ChildTransaction {
+  id                   String             @id @default(uuid()) @db.Uuid
+  child_profile_id     String             @db.Uuid
+  transaction_type     String             @db.VarChar(50)
+  amount               Decimal            @db.Decimal(10, 2)
+  currency_type        CurrencyType
+  description          String             @db.VarChar(500)
+  status               String             @default("completed") @db.VarChar(50)
+  requires_approval    Boolean            @default(false)
+  approved_by_user_id  String?            @db.Uuid
+  approved_at          DateTime?          @db.Timestamptz(6)
+  related_task_id      String?            @db.Uuid
+  related_reward_id    String?            @db.Uuid
+  related_allowance_id String?            @db.Uuid
+  balance_after        Decimal?           @db.Decimal(10, 2)
+  category             String?            @db.VarChar(100)
+  notes                String?
+  metadata             Json               @default("{}")
+  created_at           DateTime           @default(now()) @db.Timestamptz(6)
+  approved_by          User?              @relation("ChildTransactionApprovedBy", fields: [approved_by_user_id], references: [id])
+  child_profile        ChildProfile       @relation(fields: [child_profile_id], references: [id], onDelete: Cascade)
+  related_allowance    AllowanceSchedule? @relation(fields: [related_allowance_id], references: [id])
+  related_reward       Reward?            @relation(fields: [related_reward_id], references: [id])
+  related_task         Task?              @relation(fields: [related_task_id], references: [id])
+
+  @@index([child_profile_id, created_at(sort: Desc)])
+  @@map("child_transactions")
+}
+
+model ChildLoginAuditLog {
+  id               String       @id @default(uuid()) @db.Uuid
+  child_profile_id String       @db.Uuid
+  timestamp        DateTime     @default(now()) @db.Timestamptz(6)
+  success          Boolean
+  ip_address       String?      @db.VarChar(45)
+  user_agent       String?
+  failure_reason   String?      @db.VarChar(255)
+  created_at       DateTime     @default(now()) @db.Timestamptz(6)
+  child_profile    ChildProfile @relation(fields: [child_profile_id], references: [id], onDelete: Cascade)
+
+  @@index([child_profile_id, timestamp(sort: Desc)])
+  @@map("child_login_audit_log")
+}
+
+model ChildAchievement {
+  id               String       @id @default(uuid()) @db.Uuid
+  child_profile_id String       @db.Uuid
+  achievement_type String       @db.VarChar(100)
+  title            String       @db.VarChar(255)
+  description      String?
+  icon             String?      @db.VarChar(100)
+  metadata         Json         @default("{}")
+  earned_at        DateTime     @default(now()) @db.Timestamptz(6)
+  child_profile    ChildProfile @relation(fields: [child_profile_id], references: [id], onDelete: Cascade)
+
+  @@index([child_profile_id])
+  @@map("child_achievements")
+}
+
+model VaultFolder {
+  id               String        @id @default(uuid()) @db.Uuid
+  profile_id       String        @db.Uuid
+  name             String        @db.VarChar(255)
+  icon             String        @default("Folder") @db.VarChar(100)
+  color            String        @default("#6B7280") @db.VarChar(32)
+  parent_folder_id String?       @db.Uuid
+  sort_order       Int           @default(0)
+  created_at       DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime      @updatedAt @db.Timestamptz(6)
+  parent_folder    VaultFolder?  @relation("VaultFolderHierarchy", fields: [parent_folder_id], references: [id], onDelete: Cascade)
+  child_folders    VaultFolder[] @relation("VaultFolderHierarchy")
+  profile          Profile       @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+  items            VaultItem[]
+
+  @@index([profile_id])
+  @@index([parent_folder_id])
+  @@map("vault_folders")
+}
+
+model VaultEncryptionKey {
+  id            String   @id @default(uuid()) @db.Uuid
+  profile_id    String   @unique @db.Uuid
+  encrypted_key String
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  profile       Profile  @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+
+  @@map("vault_encryption_keys")
+}
+
+model VaultItem {
+  id            String        @id @default(uuid()) @db.Uuid
+  profile_id    String        @db.Uuid
+  user_id       String        @db.Uuid
+  folder_id     String?       @db.Uuid
+  category      VaultCategory
+  name          String        @db.VarChar(255)
+  url           String?
+  username      String?
+  password      String?
+  notes         String?
+  custom_fields Json          @default("{}")
+  tags          String[]      @default([])
+  is_favorite   Boolean       @default(false)
+  last_used_at  DateTime?     @db.Timestamptz(6)
+  created_at    DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime      @updatedAt @db.Timestamptz(6)
+  deleted_at    DateTime?     @db.Timestamptz(6)
+  folder        VaultFolder?  @relation(fields: [folder_id], references: [id])
+  profile       Profile       @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  shares        VaultShare[]
+
+  @@index([profile_id])
+  @@index([profile_id, deleted_at])
+  @@index([user_id])
+  @@map("vault_items")
+}
+
+model VaultShare {
+  id                  String          @id @default(uuid()) @db.Uuid
+  vault_item_id       String          @db.Uuid
+  shared_by_user_id   String          @db.Uuid
+  shared_with_user_id String          @db.Uuid
+  permission          SharePermission
+  expires_at          DateTime?       @db.Timestamptz(6)
+  revoked_at          DateTime?       @db.Timestamptz(6)
+  created_at          DateTime        @default(now()) @db.Timestamptz(6)
+  shared_by           User            @relation("VaultShareSender", fields: [shared_by_user_id], references: [id], onDelete: Cascade)
+  shared_with         User            @relation("VaultShareRecipient", fields: [shared_with_user_id], references: [id], onDelete: Cascade)
+  vault_item          VaultItem       @relation(fields: [vault_item_id], references: [id], onDelete: Cascade)
+
+  @@unique([vault_item_id, shared_with_user_id])
+  @@index([shared_with_user_id])
+  @@map("vault_shares")
+}
+
+model ProtectedConfiguration {
+  id              String                   @id @default(uuid()) @db.Uuid
+  profile_id      String                   @db.Uuid
+  config_key      String                   @db.VarChar(100)
+  config_value    Json
+  content_hash    String?                  @db.VarChar(128)
+  is_protected    Boolean                  @default(true)
+  created_by      String?                  @db.Uuid
+  updated_by      String?                  @db.Uuid
+  created_at      DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime                 @updatedAt @db.Timestamptz(6)
+  change_logs     ConfigurationChangeLog[]
+  created_by_user User?                    @relation("ProtectedConfigCreatedBy", fields: [created_by], references: [id])
+  profile         Profile                  @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+  updated_by_user User?                    @relation("ProtectedConfigUpdatedBy", fields: [updated_by], references: [id])
+
+  @@unique([profile_id, config_key])
+  @@map("protected_configurations")
+}
+
+model ConfigurationChangeLog {
+  id               String                  @id @default(uuid()) @db.Uuid
+  profile_id       String                  @db.Uuid
+  configuration_id String?                 @db.Uuid
+  config_key       String                  @db.VarChar(100)
+  changed_by       String?                 @db.Uuid
+  old_value        Json?
+  new_value        Json?
+  reason           String?
+  created_at       DateTime                @default(now()) @db.Timestamptz(6)
+  changed_by_user  User?                   @relation(fields: [changed_by], references: [id])
+  configuration    ProtectedConfiguration? @relation(fields: [configuration_id], references: [id])
+  profile          Profile                 @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+
+  @@index([profile_id, created_at(sort: Desc)])
+  @@map("configuration_change_log")
+}
+
+model TransferMatchSuggestion {
+  id               String      @id @default(uuid()) @db.Uuid
+  profile_id       String      @db.Uuid
+  transaction_1_id String      @db.Uuid
+  transaction_2_id String      @db.Uuid
+  confidence_score Decimal     @db.Decimal(5, 2)
+  match_reasons    Json        @default("[]")
+  status           String      @default("pending") @db.VarChar(50)
+  auto_matched_at  DateTime?   @db.Timestamptz(6)
+  created_at       DateTime    @default(now()) @db.Timestamptz(6)
+  profile          Profile     @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+  transaction_1    Transaction @relation("TransferMatchTx1", fields: [transaction_1_id], references: [id], onDelete: Cascade)
+  transaction_2    Transaction @relation("TransferMatchTx2", fields: [transaction_2_id], references: [id], onDelete: Cascade)
+
+  @@unique([transaction_1_id, transaction_2_id])
+  @@index([profile_id, status])
+  @@map("transfer_match_suggestions")
+}
+
+model FinancialInstitution {
+  id         String   @id @default(uuid()) @db.Uuid
+  name       String   @db.VarChar(255)
+  logo_url   String?
+  provider   String?  @db.VarChar(100)
+  metadata   Json     @default("{}")
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([is_active])
+  @@map("financial_institutions")
+}
+
+model PaymentReminder {
+  id           String    @id @default(uuid()) @db.Uuid
+  profile_id   String    @db.Uuid
+  title        String    @db.VarChar(255)
+  description  String?
+  due_date     DateTime  @db.Timestamptz(6)
+  amount       Decimal?  @db.Decimal(14, 2)
+  status       String    @default("pending") @db.VarChar(50)
+  last_sent_at DateTime? @db.Timestamptz(6)
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime  @updatedAt @db.Timestamptz(6)
+  profile      Profile   @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+
+  @@index([profile_id, due_date])
+  @@index([status, due_date])
+  @@map("payment_reminders")
+}
+
+model RecurringSchedule {
+  id                   String                   @id @default(uuid()) @db.Uuid
+  profile_id           String                   @db.Uuid
+  created_by_user_id   String?                  @db.Uuid
+  schedule_type        RecurringScheduleType
+  title                String                   @db.VarChar(255)
+  description          String?
+  cadence              RecurringScheduleCadence
+  recurrence_rule      String?                  @db.VarChar(500)
+  custom_interval_days Int?
+  start_date           DateTime                 @db.Date
+  end_date             DateTime?                @db.Date
+  timezone             String                   @default("UTC") @db.VarChar(100)
+  expected_amount      Decimal?                 @db.Decimal(14, 2)
+  bank_account_id      String?                  @db.Uuid
+  category_account_id  String?                  @db.Uuid
+  contact_id           String?                  @db.Uuid
+  reminder_offsets     Int[]                    @default([7, 3, 1, 0])
+  status               Boolean                  @default(true)
+  metadata             Json                     @default("{}")
+  created_at           DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime                 @updatedAt @db.Timestamptz(6)
+  deleted_at           DateTime?                @db.Timestamptz(6)
+  notifications        CalendarNotification[]
+  occurrences          RecurringOccurrence[]
+  bank_account         UserChartOfAccount?      @relation("RecurringScheduleBankAccount", fields: [bank_account_id], references: [id])
+  category_account     UserChartOfAccount?      @relation("RecurringScheduleCategoryAccount", fields: [category_account_id], references: [id])
+  contact              Contact?                 @relation(fields: [contact_id], references: [id])
+  created_by           User?                    @relation("RecurringScheduleCreatedBy", fields: [created_by_user_id], references: [id])
+  profile              Profile                  @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+
+  @@index([profile_id, status])
+  @@index([profile_id, start_date])
+  @@index([deleted_at])
+  @@map("recurring_schedules")
+}
+
+model RecurringOccurrence {
+  id                    String                    @id @default(uuid()) @db.Uuid
+  profile_id            String                    @db.Uuid
+  schedule_id           String                    @db.Uuid
+  occurrence_date       DateTime                  @db.Date
+  expected_amount       Decimal?                  @db.Decimal(14, 2)
+  status                RecurringOccurrenceStatus @default(upcoming)
+  linked_transaction_id String?                   @unique @db.Uuid
+  completed_at          DateTime?                 @db.Timestamptz(6)
+  skipped_at            DateTime?                 @db.Timestamptz(6)
+  cancelled_at          DateTime?                 @db.Timestamptz(6)
+  notes                 String?
+  metadata              Json                      @default("{}")
+  created_at            DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime                  @updatedAt @db.Timestamptz(6)
+  notifications         CalendarNotification[]
+  linked_transaction    Transaction?              @relation("OccurrenceTransaction", fields: [linked_transaction_id], references: [id])
+  profile               Profile                   @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+  schedule              RecurringSchedule         @relation(fields: [schedule_id], references: [id], onDelete: Cascade)
+
+  @@unique([schedule_id, occurrence_date])
+  @@index([profile_id, occurrence_date])
+  @@index([profile_id, status, occurrence_date])
+  @@map("recurring_occurrences")
+}
+
+model CalendarNotification {
+  id                   String              @id @default(uuid()) @db.Uuid
+  profile_id           String              @db.Uuid
+  schedule_id          String              @db.Uuid
+  occurrence_id        String              @db.Uuid
+  delivery_key         String              @unique @db.VarChar(255)
+  title                String              @db.VarChar(255)
+  body                 String?
+  due_date             DateTime            @db.Date
+  reminder_offset_days Int
+  delivered_at         DateTime            @default(now()) @db.Timestamptz(6)
+  acknowledged_at      DateTime?           @db.Timestamptz(6)
+  acknowledged_by_id   String?             @db.Uuid
+  created_at           DateTime            @default(now()) @db.Timestamptz(6)
+  acknowledged_by      User?               @relation("CalendarNotificationAcknowledgedBy", fields: [acknowledged_by_id], references: [id])
+  occurrence           RecurringOccurrence @relation(fields: [occurrence_id], references: [id], onDelete: Cascade)
+  profile              Profile             @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+  schedule             RecurringSchedule   @relation(fields: [schedule_id], references: [id], onDelete: Cascade)
+
+  @@index([profile_id, acknowledged_at, due_date])
+  @@index([occurrence_id])
+  @@map("calendar_notifications")
+}
+
+model Notification {
+  id                String               @id @default(uuid()) @db.Uuid
+  profile_id        String               @db.Uuid
+  recipient_user_id String?              @db.Uuid
+  source            String               @db.VarChar(100)
+  source_id         String?              @db.VarChar(255)
+  event_type        String               @db.VarChar(100)
+  delivery_key      String?              @unique @db.VarChar(255)
+  title             String               @db.VarChar(255)
+  body              String?
+  action_url        String?
+  priority          NotificationPriority @default(normal)
+  metadata          Json                 @default("{}")
+  read_at           DateTime?            @db.Timestamptz(6)
+  read_by_id        String?              @db.Uuid
+  expires_at        DateTime?            @db.Timestamptz(6)
+  created_at        DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime             @updatedAt @db.Timestamptz(6)
+  profile           Profile              @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+  read_by           User?                @relation("NotificationReadBy", fields: [read_by_id], references: [id])
+  recipient_user    User?                @relation("NotificationRecipient", fields: [recipient_user_id], references: [id], onDelete: Cascade)
+
+  @@index([profile_id, read_at, created_at(sort: Desc)])
+  @@index([profile_id, source, event_type])
+  @@index([recipient_user_id, read_at, created_at(sort: Desc)])
+  @@index([expires_at])
+  @@map("notifications")
+}
+
+model CreditVerification {
+  id                  String                     @id @default(uuid()) @db.Uuid
+  profile_id          String                     @unique @db.Uuid
+  user_id             String                     @db.Uuid
+  provider            CreditVerificationProvider
+  provider_session_id String
+  status              CreditVerificationStatus
+  verified_at         DateTime?                  @db.Timestamptz(6)
+  failure_reason      String?
+  created_at          DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime                   @updatedAt @db.Timestamptz(6)
+  deleted_at          DateTime?                  @db.Timestamptz(6)
+  profile             Profile                    @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+  user                User                       @relation(fields: [user_id], references: [id])
+
+  @@index([profile_id])
+  @@index([user_id])
+  @@index([deleted_at])
+  @@map("credit_verifications")
+}
+
+model CreditScore {
+  id         String            @id @default(uuid()) @db.Uuid
+  profile_id String            @db.Uuid
+  score      Int               @db.SmallInt
+  score_band CreditScoreBand
+  bureau     String?           @db.VarChar(50)
+  factors    Json
+  pulled_at  DateTime          @db.Timestamptz(6)
+  source     CreditScoreSource
+  created_at DateTime          @default(now()) @db.Timestamptz(6)
+  deleted_at DateTime?         @db.Timestamptz(6)
+  profile    Profile           @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+
+  @@index([profile_id, pulled_at(sort: Desc)])
+  @@index([deleted_at])
+  @@map("credit_scores")
+}
+
+model Document {
+  id           String   @id @default(uuid()) @db.Uuid
+  profile_id   String?  @db.Uuid
+  uploaded_by  String?  @db.Uuid
+  file_name    String   @db.VarChar(255)
+  file_size    Int?
+  file_type    String?  @db.VarChar(100)
+  storage_path String
+  metadata     Json     @default("{}")
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  profile      Profile? @relation(fields: [profile_id], references: [id])
+  uploader     User?    @relation(fields: [uploaded_by], references: [id])
+
+  @@index([profile_id])
+  @@map("documents")
+}
+
+model Event {
+  id           String   @id @default(uuid()) @db.Uuid
+  profile_id   String   @db.Uuid
+  name         String   @db.VarChar(255)
+  destination  String?
+  start_date   DateTime @db.Date
+  end_date     DateTime @db.Date
+  for          String[]
+  is_trip      Int
+  star_earning Int
+  color_code   String?
+  notes        String?
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  profile      Profile  @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+
+  @@map("events")
+}
+
+model Referral {
+  id             String         @id @default(uuid()) @db.Uuid
+  code           String         @unique @db.VarChar(50)
+  short_id       String         @unique @db.VarChar(20)
+  max_uses       Int?
+  current_uses   Int            @default(0)
+  expires_at     DateTime?      @db.Timestamptz(6)
+  description    String?        @db.VarChar(500)
+  created_at     DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime       @updatedAt @db.Timestamptz(6)
+  deleted_at     DateTime?      @db.Timestamptz(6)
+  referred_by_id String         @db.Uuid
+  used_by        String[]       @default([])
+  status         ReferralStatus @default(active)
+  referred_by    User           @relation(fields: [referred_by_id], references: [id], onDelete: Cascade)
+
+  @@index([short_id])
+  @@index([code])
+  @@index([referred_by_id])
+  @@index([status, expires_at])
+  @@index([deleted_at])
+  @@map("referrals")
+}
+
+model Recipe {
+  id           String     @id @default(uuid()) @db.Uuid
+  profile_id   String     @db.Uuid
+  name         String     @db.VarChar(255)
+  type         String     @default("Entree") @db.VarChar(50)
+  prep_time    Int?       @default(30)
+  description  String?
+  tags         Json       @default("[]")
+  ingredients  Json       @default("[]")
+  instructions String?
+  metadata     Json       @default("{}")
+  created_at   DateTime   @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime   @updatedAt @db.Timestamptz(6)
+  deleted_at   DateTime?  @db.Timestamptz(6)
+  meal_plans   MealPlan[]
+  profile      Profile    @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+
+  @@index([profile_id])
+  @@index([profile_id, type])
+  @@map("recipes")
+}
+
+model MealPlan {
+  id         String    @id @default(uuid()) @db.Uuid
+  profile_id String    @db.Uuid
+  date       DateTime  @db.Date
+  meal_type  String    @db.VarChar(50)
+  course     String    @default("entree") @db.VarChar(50)
+  dish_name  String    @db.VarChar(255)
+  recipe_id  String?   @db.Uuid
+  notes      String?
+  metadata   Json      @default("{}")
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at DateTime  @updatedAt @db.Timestamptz(6)
+  deleted_at DateTime? @db.Timestamptz(6)
+  profile    Profile   @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+  recipe     Recipe?   @relation(fields: [recipe_id], references: [id])
+
+  @@index([profile_id])
+  @@index([profile_id, date])
+  @@map("meal_plans")
+}
+
+model Category {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String    @unique @db.VarChar(50)
+  description String?   @db.VarChar(500)
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime  @updatedAt @db.Timestamptz(6)
+  deleted_at  DateTime? @db.Timestamptz(6)
+
+  @@index([name])
+  @@index([deleted_at])
+  @@map("categories")
+}
+
+enum OtpVerificationStatus {
+  pending
+  verified
+  expired
+}
+
+enum PhoneVerificationStatus {
+  pending
+  verified
+  expired
+  failed
+}
+
+enum ProfileType {
+  personal
+  household
+  business
+  real_estate
+  passive
+  holding_company
+  child
+  virtual
+}
+
+enum MembershipRole {
+  owner
+  admin
+  editor
+  viewer
+  child
+}
+
+enum ChildFamilyRole {
+  child
+  spouse_partner
+  parent
+  sibling
+  grandparent
+  other
+}
+
+enum AccountClass {
+  asset
+  liability
+  equity
+  income
+  expense
+}
+
+enum TransactionStatus {
+  pending
+  posted
+  reviewed
+  excluded
+  deleted
+}
+
+enum TransactionType {
+  income
+  expense
+  transfer
+  asset_purchase
+  liability_payment
+  adjustment
+}
+
+enum JournalEntryStatus {
+  draft
+  posted
+  voided
+}
+
+enum TaskStatus {
+  pending
+  in_progress
+  completed
+  approved
+  rejected
+  active
+  archived
+}
+
+enum CompletionStatus {
+  pending
+  approved
+  rejected
+}
+
+enum RewardStatus {
+  available
+  pending
+  approved
+  rejected
+  fulfilled
+  cancelled
+  redeemed
+}
+
+enum AllowanceFrequency {
+  daily
+  weekly
+  biweekly
+  monthly
+}
+
+enum CurrencyType {
+  points
+  cash
+  stars
+}
+
+enum VaultCategory {
+  login
+  card
+  note
+  identity
+}
+
+enum SharePermission {
+  view
+  edit
+}
+
+enum InvitationStatus {
+  pending
+  accepted
+  expired
+  revoked
+}
+
+enum GoalStatus {
+  active
+  completed
+  paused
+  archived
+}
+
+enum RecurringScheduleType {
+  expense
+  income
+  transfer
+  reminder
+}
+
+enum RecurringScheduleCadence {
+  weekly
+  biweekly
+  monthly
+  quarterly
+  yearly
+  custom
+}
+
+enum RecurringOccurrenceStatus {
+  upcoming
+  due
+  overdue
+  confirmed
+  matched
+  skipped
+  cancelled
+}
+
+enum NotificationPriority {
+  low
+  normal
+  high
+  urgent
+}
+
+enum ProfileSharePermission {
+  view_only
+  editor
+  co_parent
+}
+
+enum CreditVerificationProvider {
+  mock
+  stripe_identity
+  experian
+}
+
+enum CreditVerificationStatus {
+  pending
+  verified
+  failed
+  expired
+}
+
+enum CreditScoreBand {
+  poor
+  fair
+  good
+  very_good
+  exceptional
+}
+
+enum CreditScoreSource {
+  manual_refresh
+  scheduled
+}
+
+enum ReferralStatus {
+  active
+  inactive
+}

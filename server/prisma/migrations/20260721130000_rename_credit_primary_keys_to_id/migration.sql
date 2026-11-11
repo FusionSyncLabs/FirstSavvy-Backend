@@ -1,0 +1,2 @@
+-- ALTER TABLE "credit_verifications" RENAME COLUMN "verification_id" TO "id";
+-- ALTER TABLE "credit_scores" RENAME COLUMN "score_id" TO "id";
