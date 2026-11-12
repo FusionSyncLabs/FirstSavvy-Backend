@@ -10,6 +10,7 @@ const {
   currentAdminHandler,
   createSubAdminHandler
 } = require('../../../controllers/admin/admin.controller');
+const usersRoutes = require('./users.routes');
 
 const router = express.Router();
 
@@ -42,6 +43,7 @@ router.post(
 router.post('/refresh', authRateLimiter, refreshAdminHandler);
 router.post('/logout', authenticateAdmin, logoutAdminHandler);
 router.get('/me', authenticateAdmin, currentAdminHandler);
+router.use('/users', usersRoutes);
 
 router.post(
   '/sub-admins',

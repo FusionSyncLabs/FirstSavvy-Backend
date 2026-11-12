@@ -262,6 +262,273 @@ Example `403 Forbidden`:
 }
 ```
 
+## 4. Get all users by Admin
+
+**Method & URL:** `GET {{baseUrl}}/api/v1/admin/users`
+
+Only an active Super Admin can call this endpoint. Users with at least one non-deleted referral are ordered first. Deleted users and deleted referral records are omitted; their database rows are retained.
+
+**Headers**
+
+```http
+Authorization: Bearer {{adminAccessToken}}
+Accept: application/json
+```
+
+**Query parameters**
+
+| Name | Type | Required | Default | Limits |
+|---|---|---:|---:|---|
+| `page` | integer | No | `1` | Must be at least `1` |
+| `limit` | integer | No | `20` | `1` to `100` |
+
+Example: `GET {{baseUrl}}/api/v1/admin/users?page=1&limit=20`
+
+No request body is sent.
+
+**Success: `200 OK`**
+
+Each user contains safe account/profile fields and a `referrals` array. Each referral's `current_uses` is the stored count; `used_by_count` is the number of IDs recorded in `used_by`. Referred-user records are fetched from the separate paginated endpoint below.
+
+```json
+{
+  "success": true,
+  "data": {
+    "users": [
+      {
+        "id": "550e8400-e29b-41d4-a716-446655440000",
+        "email": "user@example.com",
+        "full_name": "Sample User",
+        "user_name": "sample-user",
+        "unique_id": "USR-1001",
+        "avatar_url": null,
+        "phone_number": null,
+        "phone_verified_at": null,
+        "verified_at": "2026-11-10T20:00:00.000Z",
+        "referral_code": null,
+        "created_at": "2026-11-10T20:00:00.000Z",
+        "updated_at": "2026-11-10T20:00:00.000Z",
+        "has_password": true,
+        "auth_provider": "password",
+        "has_referral": true,
+        "referrals": [
+          {
+            "id": "650e8400-e29b-41d4-a716-446655440000",
+            "code": "ReferralCode123",
+            "short_id": "Ab12Cd34",
+            "status": "active",
+            "current_uses": 3,
+            "used_by_count": 3,
+            "max_uses": null,
+            "expires_at": null,
+            "description": null,
+            "created_at": "2026-11-10T20:00:00.000Z",
+            "updated_at": "2026-11-10T20:00:00.000Z"
+          }
+        ]
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 20,
+      "total": 1,
+      "totalPages": 1,
+      "hasNextPage": false,
+      "hasPreviousPage": false
+    }
+  },
+  "error": null
+}
+```
+
+**Errors**
+
+- `400 Bad Request`: invalid page or limit. Example for `limit=101`:
+
+```json
+{
+  "success": false,
+  "data": null,
+  "error": {
+    "code": "VALIDATION_FAILED",
+    "message": "Limit must be a positive integer within allowed bounds",
+    "details": [
+      {
+        "location": "query",
+        "field": "limit",
+        "message": "Limit must be between 1 and 100"
+      }
+    ],
+    "requestId": "request-id"
+  }
+}
+```
+
+- `401 Unauthorized`: missing, invalid, expired, revoked, or customer-user token. Example:
+
+```json
+{
+  "success": false,
+  "data": null,
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Admin authentication required.",
+    "details": null,
+    "requestId": "request-id"
+  }
+}
+```
+
+- `403 Forbidden`: valid Sub Admin token; only Super Admin is allowed. Uses the common error envelope with `code: "FORBIDDEN"`.
+
+```json
+{
+  "success": false,
+  "data": null,
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "You do not have permission to perform this action.",
+    "details": null,
+    "requestId": "request-id"
+  }
+}
+```
+
+There is no `201 Created` response because this is a read-only `GET` endpoint.
+
+## 5. Get referred users by Admin
+
+**Method & URL:** `GET {{baseUrl}}/api/v1/admin/users/{{userId}}/referrals/{{referralId}}/users`
+
+`userId` is the referral owner ID; `referralId` is that owner's referral ID. The endpoint verifies that the referral belongs to the supplied owner. Deleted users/referrals and deleted referred-user records are omitted; rows remain in the database.
+
+**Headers**
+
+```http
+Authorization: Bearer {{adminAccessToken}}
+Accept: application/json
+```
+
+**Query parameters**
+
+| Name | Type | Required | Default | Limits |
+|---|---|---:|---:|---|
+| `page` | integer | No | `1` | Must be at least `1` |
+| `limit` | integer | No | `20` | `1` to `100` |
+
+Example: `GET {{baseUrl}}/api/v1/admin/users/550e8400-e29b-41d4-a716-446655440000/referrals/650e8400-e29b-41d4-a716-446655440000/users?page=1&limit=20`
+
+No request body is sent.
+
+**Success: `200 OK`**
+
+```json
+{
+  "success": true,
+  "data": {
+    "users": [
+      {
+        "id": "750e8400-e29b-41d4-a716-446655440000",
+        "email": "referred@example.com",
+        "full_name": "Referred User",
+        "user_name": "referred-user",
+        "unique_id": "USR-1002",
+        "avatar_url": null,
+        "phone_number": null,
+        "phone_verified_at": null,
+        "verified_at": null,
+        "referral_code": "ReferralCode123",
+        "created_at": "2026-11-11T20:00:00.000Z",
+        "updated_at": "2026-11-11T20:00:00.000Z",
+        "has_password": true,
+        "auth_provider": "password"
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 20,
+      "total": 1,
+      "totalPages": 1,
+      "hasNextPage": false,
+      "hasPreviousPage": false
+    }
+  },
+  "error": null
+}
+```
+
+The response includes the full admin-visible profile fields, but never password hashes, password-reset/refresh tokens, Google IDs, or two-factor secrets.
+
+**Errors**
+
+- `400 Bad Request`: malformed owner/referral UUID or invalid page/limit. Example for an invalid `userId`:
+
+```json
+{
+  "success": false,
+  "data": null,
+  "error": {
+    "code": "VALIDATION_FAILED",
+    "message": "Please provide a valid ID.",
+    "details": [
+      {
+        "location": "params",
+        "field": "userId",
+        "message": "Please provide a valid ID."
+      }
+    ],
+    "requestId": "request-id"
+  }
+}
+```
+
+- `401 Unauthorized`: missing, invalid, expired, revoked, or customer-user token. Example:
+
+```json
+{
+  "success": false,
+  "data": null,
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Admin authentication required.",
+    "details": null,
+    "requestId": "request-id"
+  }
+}
+```
+
+- `403 Forbidden`: valid Sub Admin token; only Super Admin is allowed. Example:
+
+```json
+{
+  "success": false,
+  "data": null,
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "You do not have permission to perform this action.",
+    "details": null,
+    "requestId": "request-id"
+  }
+}
+```
+
+- `404 Not Found`: owner/referral is deleted or missing, or the referral does not belong to the supplied owner. Example:
+
+```json
+{
+  "success": false,
+  "data": null,
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Referral was not found for this user.",
+    "details": null,
+    "requestId": "request-id"
+  }
+}
+```
+
+There is no `201 Created` response because this is a read-only `GET` endpoint.
+
 ## Other admin session routes
 
 | Method & URL | Headers / body | Success |

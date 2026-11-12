@@ -35,12 +35,22 @@ function errorExample(code, message, details = null) {
   };
 }
 
-function jsonResponse(description, example) {
+function jsonResponse(description, example, dataSchema = null) {
   return {
     description,
     content: {
       'application/json': {
-        schema: { $ref: '#/components/schemas/ApiResponse' },
+        schema: dataSchema
+          ? {
+            type: 'object',
+            required: ['success', 'data', 'error'],
+            properties: {
+              success: { type: 'boolean', enum: [true] },
+              data: dataSchema,
+              error: { type: 'object', nullable: true }
+            }
+          }
+          : { $ref: '#/components/schemas/ApiResponse' },
         example
       }
     }
@@ -84,7 +94,12 @@ function buildAdminOpenApiSpec() {
       ].join('\n\n')
     },
     servers: [{ url: `http://localhost:${env.port}`, description: 'Local development' }],
-    tags: [{ name: 'Admin Auth' }, { name: 'Admin Management' }],
+    tags: [
+      { name: 'Admin Auth' },
+      { name: 'Admin Management' },
+      { name: 'Get All Users by Admin' },
+      { name: 'Get Referred Users by Admin' }
+    ],
     paths: {
       '/api/v1/admin/setup-super-admin': {
         post: {
@@ -176,6 +191,137 @@ function buildAdminOpenApiSpec() {
             })
           }
         }
+      },
+      '/api/v1/admin/users': {
+        get: {
+          tags: ['Get All Users by Admin'],
+          summary: 'Get all users by Admin',
+          description: 'Returns non-deleted users ordered with referral owners first. The referrals array includes each referral summary and stored usage count; linked account details are available from the paginated referral-users endpoint.',
+          security: [{ adminBearerAuth: [] }],
+          parameters: [
+            {
+              name: 'page',
+              in: 'query',
+              description: 'Page number, starting at 1.',
+              schema: { type: 'integer', minimum: 1, default: 1 }
+            },
+            {
+              name: 'limit',
+              in: 'query',
+              description: 'Items per page (1-100; default 20).',
+              schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 }
+            }
+          ],
+          responses: {
+            200: jsonResponse('Paginated users and referral summaries.', successExample({
+              users: [{
+                id: '550e8400-e29b-41d4-a716-446655440000',
+                email: 'user@example.com',
+                full_name: 'Sample User',
+                user_name: 'sample-user',
+                unique_id: 'USR-1001',
+                avatar_url: null,
+                phone_number: null,
+                phone_verified_at: null,
+                verified_at: '2026-11-10T20:00:00.000Z',
+                referral_code: null,
+                created_at: '2026-11-10T20:00:00.000Z',
+                updated_at: '2026-11-10T20:00:00.000Z',
+                has_password: true,
+                auth_provider: 'password',
+                has_referral: true,
+                referrals: [{
+                  id: '650e8400-e29b-41d4-a716-446655440000',
+                  code: 'ReferralCode123',
+                  short_id: 'Ab12Cd34',
+                  status: 'active',
+                  current_uses: 3,
+                  used_by_count: 3,
+                  max_uses: null,
+                  expires_at: null,
+                  description: null,
+                  created_at: '2026-11-10T20:00:00.000Z',
+                  updated_at: '2026-11-10T20:00:00.000Z'
+                }]
+              }],
+              pagination: { page: 1, limit: 20, total: 1, totalPages: 1, hasNextPage: false, hasPreviousPage: false }
+            }), { $ref: '#/components/schemas/AdminUserListData' }),
+            ...errorResponses({
+              400: jsonResponse('Invalid page or limit.', errorExample('VALIDATION_FAILED', 'Limit must be a positive integer within allowed bounds', [
+                { location: 'query', field: 'limit', message: 'Limit must be between 1 and 100' }
+              ])),
+              401: jsonResponse('Missing or invalid admin access token.', errorExample('UNAUTHORIZED', 'Admin authentication required.')),
+              403: jsonResponse('Only a Super Admin may list users.', errorExample('FORBIDDEN', 'You do not have permission to perform this action.')),
+              409: undefined,
+              429: undefined
+            })
+          }
+        }
+      },
+      '/api/v1/admin/users/{userId}/referrals/{referralId}/users': {
+        get: {
+          tags: ['Get Referred Users by Admin'],
+          summary: 'Get referred users by Admin',
+          description: 'Returns non-deleted user details linked by the referral used_by array. The referral must belong to the supplied user. Results are paginated.',
+          security: [{ adminBearerAuth: [] }],
+          parameters: [
+            {
+              name: 'userId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string', format: 'uuid' }
+            },
+            {
+              name: 'referralId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string', format: 'uuid' }
+            },
+            {
+              name: 'page',
+              in: 'query',
+              description: 'Page number, starting at 1.',
+              schema: { type: 'integer', minimum: 1, default: 1 }
+            },
+            {
+              name: 'limit',
+              in: 'query',
+              description: 'Items per page (1-100; default 20).',
+              schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 }
+            }
+          ],
+          responses: {
+            200: jsonResponse('Paginated referred users.', successExample({
+              users: [{
+                id: '750e8400-e29b-41d4-a716-446655440000',
+                email: 'referred@example.com',
+                full_name: 'Referred User',
+                user_name: 'referred-user',
+                unique_id: 'USR-1002',
+                avatar_url: null,
+                phone_number: null,
+                phone_verified_at: null,
+                verified_at: null,
+                referral_code: 'ReferralCode123',
+                created_at: '2026-11-11T20:00:00.000Z',
+                updated_at: '2026-11-11T20:00:00.000Z',
+                has_password: true,
+                auth_provider: 'password'
+              }],
+              pagination: { page: 1, limit: 20, total: 1, totalPages: 1, hasNextPage: false, hasPreviousPage: false }
+            }), { $ref: '#/components/schemas/AdminReferralUsersData' }),
+            ...errorResponses({
+              400: jsonResponse('Invalid UUID, page, or limit.', errorExample('VALIDATION_FAILED', 'Please provide a valid ID.', [
+                { location: 'params', field: 'userId', message: 'Please provide a valid ID.' }
+              ])),
+              401: jsonResponse('Missing or invalid admin access token.', errorExample('UNAUTHORIZED', 'Admin authentication required.')),
+              403: jsonResponse('Only a Super Admin may list referred users.', errorExample('FORBIDDEN', 'You do not have permission to perform this action.')),
+              404: jsonResponse('The user or referral was not found, or the referral does not belong to the user.', errorExample('NOT_FOUND', 'Referral was not found for this user.')),
+              409: undefined,
+              429: undefined
+            })
+          }
+        }
       }
     },
     components: {
@@ -246,6 +392,84 @@ function buildAdminOpenApiSpec() {
             accessToken: { type: 'string', description: 'Admin-scoped bearer access token.' },
             tokenType: { type: 'string', example: 'Bearer' },
             expiresIn: { type: 'integer', example: env.accessTokenTtlSeconds }
+          }
+        },
+        AdminUserProfile: {
+          type: 'object',
+          required: ['id', 'email', 'created_at', 'updated_at', 'has_password', 'auth_provider'],
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+            email: { type: 'string', format: 'email' },
+            full_name: { type: 'string', nullable: true },
+            user_name: { type: 'string' },
+            unique_id: { type: 'string' },
+            avatar_url: { type: 'string', nullable: true },
+            phone_number: { type: 'string', nullable: true },
+            phone_verified_at: { type: 'string', format: 'date-time', nullable: true },
+            verified_at: { type: 'string', format: 'date-time', nullable: true },
+            referral_code: { type: 'string', nullable: true },
+            created_at: { type: 'string', format: 'date-time' },
+            updated_at: { type: 'string', format: 'date-time' },
+            has_password: { type: 'boolean' },
+            auth_provider: { type: 'string', enum: ['google', 'password'] }
+          }
+        },
+        AdminReferralSummary: {
+          type: 'object',
+          required: ['id', 'code', 'short_id', 'status', 'current_uses', 'used_by_count'],
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+            code: { type: 'string' },
+            short_id: { type: 'string' },
+            status: { type: 'string', enum: ['active', 'inactive'] },
+            current_uses: { type: 'integer' },
+            used_by_count: { type: 'integer', description: 'Number of IDs currently recorded in used_by; includes deleted accounts.' },
+            max_uses: { type: 'integer', nullable: true },
+            expires_at: { type: 'string', format: 'date-time', nullable: true },
+            description: { type: 'string', nullable: true },
+            created_at: { type: 'string', format: 'date-time' },
+            updated_at: { type: 'string', format: 'date-time' }
+          }
+        },
+        AdminUserListItem: {
+          allOf: [
+            { $ref: '#/components/schemas/AdminUserProfile' },
+            {
+              type: 'object',
+              required: ['has_referral', 'referrals'],
+              properties: {
+                has_referral: { type: 'boolean' },
+                referrals: { type: 'array', items: { $ref: '#/components/schemas/AdminReferralSummary' } }
+              }
+            }
+          ]
+        },
+        AdminUserListData: {
+          type: 'object',
+          required: ['users', 'pagination'],
+          properties: {
+            users: { type: 'array', items: { $ref: '#/components/schemas/AdminUserListItem' } },
+            pagination: { $ref: '#/components/schemas/AdminPagination' }
+          }
+        },
+        AdminReferralUsersData: {
+          type: 'object',
+          required: ['users', 'pagination'],
+          properties: {
+            users: { type: 'array', items: { $ref: '#/components/schemas/AdminUserProfile' } },
+            pagination: { $ref: '#/components/schemas/AdminPagination' }
+          }
+        },
+        AdminPagination: {
+          type: 'object',
+          required: ['page', 'limit', 'total', 'totalPages', 'hasNextPage', 'hasPreviousPage'],
+          properties: {
+            page: { type: 'integer' },
+            limit: { type: 'integer' },
+            total: { type: 'integer' },
+            totalPages: { type: 'integer' },
+            hasNextPage: { type: 'boolean' },
+            hasPreviousPage: { type: 'boolean' }
           }
         }
       }

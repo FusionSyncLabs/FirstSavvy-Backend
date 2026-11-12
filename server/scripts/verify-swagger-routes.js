@@ -64,6 +64,9 @@ function parseRouteFile(filePath, base, prefix) {
   const routes = [];
   const quotedRoutePattern = /router\.(get|post|put|patch|delete)\(\s*(['"`])(.*?)\2/g;
   const regexRoutePattern = /router\.(get|post|put|patch|delete)\(\/\^\\\/public\\\/\(\.\+\)\$\//g;
+  const nestedRequirePattern = /const\s+(\w+)\s*=\s*require\((['"])(\.[^'"]+\.routes(?:\.js)?)\2\)/g;
+  const nestedMountPattern = /router\.use\(\s*(['"])(.*?)\1,\s*(\w+)\s*\)/g;
+  const nestedRouteFiles = {};
 
   let match;
   while ((match = quotedRoutePattern.exec(source)) !== null) {
@@ -82,6 +85,36 @@ function parseRouteFile(filePath, base, prefix) {
       method: method.toUpperCase(),
       path: expressPathToOpenApi(normalizePath(`${base}${prefix}/public/{filePath}`))
     });
+  }
+
+  while ((match = nestedRequirePattern.exec(source)) !== null) {
+    nestedRouteFiles[match[1]] = match[3];
+  }
+
+  while ((match = nestedMountPattern.exec(source)) !== null) {
+    const [, , routePrefix, routeVariable] = match;
+    const routeModule = nestedRouteFiles[routeVariable];
+    if (!routeModule) {
+      continue;
+    }
+
+    const nestedFileCandidates = [
+      path.resolve(
+        path.dirname(filePath),
+        routeModule.endsWith('.js') ? routeModule : `${routeModule}.js`
+      ),
+      path.resolve(path.dirname(filePath), routeModule, 'index.js')
+    ];
+    const nestedFile = nestedFileCandidates.find((candidate) => fs.existsSync(candidate));
+    if (!nestedFile) {
+      throw new Error(`Could not resolve nested route module ${routeModule} from ${filePath}`);
+    }
+
+    routes.push(...parseRouteFile(
+      nestedFile,
+      base,
+      normalizePath(`${prefix}${routePrefix}`)
+    ));
   }
 
   return routes;
