@@ -1,11 +1,11 @@
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
-const { prisma } = require('../config/database');
-const { env } = require('../config/env');
-const { ApiError } = require('../middleware/errorHandler');
-const { ERROR_CODES, HTTP_STATUS } = require('../constants/errorCodes');
-const { normalizeEmail } = require('./provisioning.helpers');
-const { signJwt, verifyJwt } = require('../utils/tokens');
+const { prisma } = require('../../config/database');
+const { env } = require('../../config/env');
+const { ApiError } = require('../../middleware/errorHandler');
+const { ERROR_CODES, HTTP_STATUS } = require('../../constants/errorCodes');
+const { normalizeEmail } = require('.././provisioning.helpers');
+const { signJwt, verifyJwt } = require('../../utils/tokens');
 
 const BCRYPT_ROUNDS = 12;
 const MAX_BCRYPT_PASSWORD_BYTES = 72;

@@ -1,7 +1,7 @@
-const { ok, created } = require('../utils/apiResponse');
-const { asyncHandler } = require('../utils/asyncHandler');
-const { env } = require('../config/env');
-const { getCookie, setAdminRefreshCookie, clearAdminRefreshCookie } = require('../utils/cookies');
+const { ok, created } = require('../../utils/apiResponse');
+const { asyncHandler } = require('../../utils/asyncHandler');
+const { env } = require('../../config/env');
+const { getCookie, setAdminRefreshCookie, clearAdminRefreshCookie } = require('../../utils/cookies');
 const {
   setupSuperAdmin,
   loginAdmin,
@@ -9,7 +9,7 @@ const {
   logoutAdmin,
   createSubAdmin,
   safeAdmin
-} = require('../services/admin.service');
+} = require('../../services/admin/admin.service');
 
 function sessionResponse(session) {
   return {

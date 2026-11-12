@@ -3,7 +3,6 @@ const { env } = require("../../config/env");
 
 const healthRoutes = require("./health.routes");
 const authRoutes = require("./auth.routes");
-const adminRoutes = require('./admin.routes');
 const otpRoutes = require("./otp.routes");
 const phoneVerificationRoutes = require("./phoneVerification.routes");
 const secretKeyRoutes = require("./secretKey.routes");
@@ -40,6 +39,9 @@ const recipeRoutes = require("./recipe.routes");
 const mealRoutes = require("./meal.routes");
 const categoryRoutes = require("./category.routes");
 const userSettingsRoutes = require("./userSettings.routes");
+
+// ADMIN ROUTES
+const adminRoutes = require('./admin/admin.routes');
 
 const { blockChildAccounts } = require("../../middleware/blockChildAccounts");
 

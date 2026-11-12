@@ -1,7 +1,7 @@
 const express = require('express');
-const { validateRequest } = require('../../middleware/validateRequest');
-const { authenticateAdmin, requireAdminRole } = require('../../middleware/authenticateAdmin');
-const { authRateLimiter } = require('../../middleware/rateLimit');
+const { validateRequest } = require('../../../middleware/validateRequest');
+const { authenticateAdmin, requireAdminRole } = require('../../../middleware/admin/authenticateAdmin');
+const { authRateLimiter } = require('../../../middleware/rateLimit');
 const {
   setupSuperAdminHandler,
   loginAdminHandler,
@@ -9,7 +9,7 @@ const {
   logoutAdminHandler,
   currentAdminHandler,
   createSubAdminHandler
-} = require('../../controllers/admin.controller');
+} = require('../../../controllers/admin/admin.controller');
 
 const router = express.Router();
 

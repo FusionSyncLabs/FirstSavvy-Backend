@@ -1,8 +1,8 @@
-const { ApiError } = require('./errorHandler');
-const { ERROR_CODES, HTTP_STATUS } = require('../constants/errorCodes');
-const { env } = require('../config/env');
-const { verifyJwt } = require('../utils/tokens');
-const { getActiveAdminById } = require('../services/admin.service');
+const { ApiError } = require('../errorHandler');
+const { ERROR_CODES, HTTP_STATUS } = require('../../constants/errorCodes');
+const { env } = require('../../config/env');
+const { verifyJwt } = require('../../utils/tokens');
+const { getActiveAdminById } = require('../../services/admin/admin.service');
 
 async function authenticateAdmin(req, _res, next) {
   const authorization = req.headers.authorization;
