@@ -69,10 +69,15 @@ function verifyBootstrapSecret(suppliedSecret) {
     });
   }
 
-  const expected = crypto.createHash('sha256').update(configuredSecret).digest();
-  const actual = crypto.createHash('sha256').update(String(suppliedSecret || '')).digest();
+  const expected = Buffer.from(configuredSecret, 'utf8');
+  const actual = Buffer.from(String(suppliedSecret || ''), 'utf8');
 
-  if (!crypto.timingSafeEqual(expected, actual)) {
+  if (
+    expected.length === 0 ||
+    actual.length === 0 ||
+    expected.length !== actual.length ||
+    !crypto.timingSafeEqual(expected, actual)
+  ) {
     throw ApiError.unauthorized('Invalid admin bootstrap secret.', {
       code: ERROR_CODES.UNAUTHORIZED
     });
@@ -151,6 +156,22 @@ async function getActiveAdminById(adminId) {
   return admin;
 }
 
+async function invalidateAdminSessionsAfterRefreshReuse(adminId, staleTokenVersion) {
+  if (!Number.isInteger(staleTokenVersion)) {
+    return;
+  }
+
+  await prisma.admin.updateMany({
+    where: {
+      id: adminId,
+      status: 'ACTIVE',
+      deleted_at: null,
+      refresh_token_version: { gt: staleTokenVersion }
+    },
+    data: { refresh_token_version: { increment: 1 } }
+  });
+}
+
 async function refreshAdminSession(refreshToken) {
   if (!refreshToken) {
     throw ApiError.unauthorized('Admin refresh token is required.', {
@@ -162,6 +183,10 @@ async function refreshAdminSession(refreshToken) {
   const admin = await getActiveAdminById(payload.sub);
 
   if (payload.tokenVersion !== admin.refresh_token_version) {
+    if (payload.tokenVersion < admin.refresh_token_version) {
+      await invalidateAdminSessionsAfterRefreshReuse(admin.id, payload.tokenVersion);
+    }
+
     throw ApiError.unauthorized('Admin session has expired. Please sign in again.', {
       code: ERROR_CODES.INVALID_TOKEN
     });
@@ -178,12 +203,20 @@ async function refreshAdminSession(refreshToken) {
   });
 
   if (rotation.count !== 1) {
+    await invalidateAdminSessionsAfterRefreshReuse(admin.id, payload.tokenVersion);
+
     throw ApiError.unauthorized('Admin session has expired. Please sign in again.', {
       code: ERROR_CODES.INVALID_TOKEN
     });
   }
 
   const refreshedAdmin = await getActiveAdminById(admin.id);
+  if (refreshedAdmin.refresh_token_version !== payload.tokenVersion + 1) {
+    throw ApiError.unauthorized('Admin session has expired. Please sign in again.', {
+      code: ERROR_CODES.INVALID_TOKEN
+    });
+  }
+
   return { admin: safeAdmin(refreshedAdmin), session: createAdminSession(refreshedAdmin) };
 }
 

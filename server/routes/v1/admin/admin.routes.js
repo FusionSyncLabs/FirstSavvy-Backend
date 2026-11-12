@@ -1,7 +1,8 @@
 const express = require('express');
 const { validateRequest } = require('../../../middleware/validateRequest');
 const { authenticateAdmin, requireAdminRole } = require('../../../middleware/admin/authenticateAdmin');
-const { authRateLimiter } = require('../../../middleware/rateLimit');
+const { requireSuperAdminSetupEnabled } = require('../../../middleware/admin/requireSuperAdminSetupEnabled');
+const { adminAuthRateLimiter } = require('../../../middleware/admin/adminAuthRateLimiter');
 const {
   setupSuperAdminHandler,
   loginAdminHandler,
@@ -16,7 +17,8 @@ const router = express.Router();
 
 router.post(
   '/setup-super-admin',
-  authRateLimiter,
+  requireSuperAdminSetupEnabled,
+  adminAuthRateLimiter,
   validateRequest({
     body: {
       secret_key: { required: true, type: 'string', minLength: 32, maxLength: 4096 },
@@ -30,7 +32,7 @@ router.post(
 
 router.post(
   '/login',
-  authRateLimiter,
+  adminAuthRateLimiter,
   validateRequest({
     body: {
       email: { required: true, type: 'string', email: true, maxLength: 320 },
@@ -40,7 +42,7 @@ router.post(
   loginAdminHandler
 );
 
-router.post('/refresh', authRateLimiter, refreshAdminHandler);
+router.post('/refresh', adminAuthRateLimiter, refreshAdminHandler);
 router.post('/logout', authenticateAdmin, logoutAdminHandler);
 router.get('/me', authenticateAdmin, currentAdminHandler);
 router.use('/users', usersRoutes);

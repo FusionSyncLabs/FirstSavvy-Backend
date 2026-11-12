@@ -48,6 +48,7 @@ function clearLegacyRefreshCookie(res) {
   });
 }
 
+// Admin route
 function setAdminRefreshCookie(res, refreshToken) {
   res.cookie(env.adminRefreshCookieName, refreshToken, {
     httpOnly: true,
@@ -58,6 +59,7 @@ function setAdminRefreshCookie(res, refreshToken) {
   });
 }
 
+// Admin route
 function clearAdminRefreshCookie(res) {
   res.clearCookie(env.adminRefreshCookieName, {
     httpOnly: true,

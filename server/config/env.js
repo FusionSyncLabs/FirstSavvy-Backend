@@ -91,6 +91,7 @@ const env = {
   refreshCookieName: process.env.REFRESH_COOKIE_NAME || "firstsavvy_refresh",
   adminRefreshCookieName:
     process.env.ADMIN_REFRESH_COOKIE_NAME || "firstsavvy_admin_refresh",
+  enableSuperAdminSetup: process.env.ENABLE_SUPER_ADMIN_SETUP === "true",
   adminBootstrapSecret: process.env.ADMIN_BOOTSTRAP_SECRET?.trim() || null,
   cookieSecure: isCookieSecure,
   passwordResetTtlMinutes: optionalInt("PASSWORD_RESET_TTL_MINUTES", 30),
