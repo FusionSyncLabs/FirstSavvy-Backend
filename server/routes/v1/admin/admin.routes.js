@@ -1,8 +1,10 @@
 const express = require('express');
 const { validateRequest } = require('../../../middleware/validateRequest');
+const { validateStrictAdminBody } = require('../../../validators/admin/admin.validators');
 const { authenticateAdmin, requireAdminRole } = require('../../../middleware/admin/authenticateAdmin');
 const { requireSuperAdminSetupEnabled } = require('../../../middleware/admin/requireSuperAdminSetupEnabled');
 const { adminAuthRateLimiter } = require('../../../middleware/admin/adminAuthRateLimiter');
+const { adminGeneralRateLimiter } = require('../../../middleware/admin/adminGeneralRateLimiter');
 const {
   setupSuperAdminHandler,
   loginAdminHandler,
@@ -43,20 +45,19 @@ router.post(
 );
 
 router.post('/refresh', adminAuthRateLimiter, refreshAdminHandler);
-router.post('/logout', authenticateAdmin, logoutAdminHandler);
-router.get('/me', authenticateAdmin, currentAdminHandler);
+router.post('/logout', authenticateAdmin, adminGeneralRateLimiter, logoutAdminHandler);
+router.get('/me', authenticateAdmin, adminGeneralRateLimiter, currentAdminHandler);
 router.use('/users', usersRoutes);
 
 router.post(
   '/sub-admins',
   authenticateAdmin,
+  adminGeneralRateLimiter,
   requireAdminRole('SUPER_ADMIN'),
-  validateRequest({
-    body: {
-      name: { required: true, type: 'string', minLength: 1, maxLength: 100 },
-      email: { required: true, type: 'string', email: true, maxLength: 320 },
-      password: { required: true, type: 'string', minLength: 8, maxLength: 72 }
-    }
+  validateStrictAdminBody({
+    name: { required: true, type: 'string', minLength: 1, maxLength: 100 },
+    email: { required: true, type: 'string', email: true, maxLength: 320 },
+    password: { required: true, type: 'string', minLength: 8, maxLength: 72 }
   }),
   createSubAdminHandler
 );

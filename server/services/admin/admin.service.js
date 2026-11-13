@@ -32,15 +32,15 @@ function createAdminSession(admin) {
       email: admin.email,
       type: 'admin_access',
       tokenVersion: admin.refresh_token_version
-    }, env.jwtAccessSecret, env.accessTokenTtlSeconds),
+    }, env.jwtAccessSecret, env.adminAccessTokenTtlSeconds),
     refreshToken: signJwt({
       sub: admin.id,
       type: 'admin_refresh',
       tokenVersion: admin.refresh_token_version,
       jti: crypto.randomUUID()
-    }, env.jwtRefreshSecret, env.refreshTokenTtlSeconds),
+    }, env.jwtRefreshSecret, env.adminRefreshTokenTtlSeconds),
     tokenType: 'Bearer',
-    expiresIn: env.accessTokenTtlSeconds
+    expiresIn: env.adminAccessTokenTtlSeconds
   };
 }
 

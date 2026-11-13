@@ -1,50 +1,66 @@
 const { Pool } = require('pg');
 const { env } = require('./env');
 
-function resolveSslConfig(connectionString) {
-  try {
-    const url = new URL(connectionString);
-    const sslMode = url.searchParams.get('sslmode');
-    const isLocalHost = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+function resolveSslConfig() {
+  const override = process.env.DATABASE_SSL?.trim().toLowerCase();
 
-    if (sslMode === 'disable') {
-      return undefined;
-    }
-
-    if (sslMode === 'verify-full' || sslMode === 'verify-ca') {
-      return { rejectUnauthorized: true };
-    }
-
-    if (sslMode === 'require' || sslMode === 'prefer' || sslMode === 'allow') {
-      return { rejectUnauthorized: false };
-    }
-
-    // Remote PostgreSQL servers should always use TLS unless explicitly disabled.
-    if (!isLocalHost) {
-      return { rejectUnauthorized: false };
-    }
-
-    return undefined;
-  } catch {
-    return env.isProduction ? { rejectUnauthorized: false } : undefined;
+  if (override && override !== 'true' && override !== 'false') {
+    throw new Error('DATABASE_SSL must be "true" or "false"');
   }
+
+  const enabled = override
+    ? override === 'true'
+    : process.env.NODE_ENV === 'production';
+
+  if (!enabled) {
+    return false;
+  }
+
+  const ssl = { rejectUnauthorized: true };
+  const ca = process.env.DATABASE_SSL_CA;
+
+  if (ca && ca.trim()) {
+    ssl.ca = ca;
+  }
+
+  return ssl;
+}
+
+function sanitizeConnectionString(connectionString) {
+  if (!/^postgres(?:ql)?:\/\//i.test(connectionString)) {
+    return connectionString;
+  }
+
+  const url = new URL(connectionString);
+
+  for (const parameter of [
+    'ssl',
+    'sslmode',
+    'sslcert',
+    'sslkey',
+    'sslrootcert',
+    'uselibpqcompat'
+  ]) {
+    url.searchParams.delete(parameter);
+  }
+
+  return url.toString();
 }
 
 function createDatabasePool(connectionString = env.databaseUrl) {
-  const ssl = resolveSslConfig(connectionString);
-
   return new Pool({
-    connectionString,
+    connectionString: sanitizeConnectionString(connectionString),
     max: env.databasePoolMax,
     idleTimeoutMillis: env.databasePoolIdleMs,
     connectionTimeoutMillis: env.databaseConnectTimeoutMs,
     statement_timeout: env.databaseStatementTimeoutMs,
     allowExitOnIdle: false,
-    ssl
+    ssl: resolveSslConfig()
   });
 }
 
 module.exports = {
   createDatabasePool,
-  resolveSslConfig
+  resolveSslConfig,
+  sanitizeConnectionString
 };

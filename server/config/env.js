@@ -26,6 +26,29 @@ function optionalInt(name, fallback) {
   return parsed;
 }
 
+function optionalDurationSeconds(name, fallback) {
+  const raw = process.env[name];
+
+  if (raw === undefined || raw.trim() === "") {
+    return fallback;
+  }
+
+  const match = String(raw).trim().match(/^(\d+)(s|m|h|d)$/i);
+
+  if (!match) {
+    throw new Error(`Environment variable ${name} must be a positive duration such as 15m or 7d`);
+  }
+
+  const multipliers = { s: 1, m: 60, h: 60 * 60, d: 24 * 60 * 60 };
+  const seconds = Number(match[1]) * multipliers[match[2].toLowerCase()];
+
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    throw new Error(`Environment variable ${name} must be a positive duration`);
+  }
+
+  return seconds;
+}
+
 function secret(name, fallback) {
   const value = process.env[name];
 
@@ -86,6 +109,14 @@ const env = {
   accessTokenTtlSeconds: optionalInt("ACCESS_TOKEN_TTL_SECONDS", 15 * 60),
   refreshTokenTtlSeconds: optionalInt(
     "REFRESH_TOKEN_TTL_SECONDS",
+    7 * 24 * 60 * 60,
+  ),
+  adminAccessTokenTtlSeconds: optionalDurationSeconds(
+    "ADMIN_ACCESS_TOKEN_EXPIRES_IN",
+    isProduction ? 15 * 60 : 60 * 60,
+  ),
+  adminRefreshTokenTtlSeconds: optionalDurationSeconds(
+    "ADMIN_REFRESH_TOKEN_EXPIRES_IN",
     7 * 24 * 60 * 60,
   ),
   refreshCookieName: process.env.REFRESH_COOKIE_NAME || "firstsavvy_refresh",

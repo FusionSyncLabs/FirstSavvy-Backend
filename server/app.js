@@ -1,9 +1,11 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const routes = require('./routes');
 const { errorHandler } = require('./middleware/errorHandler');
 const { notFound } = require('./middleware/notFound');
 const { requestContext } = require('./middleware/requestContext');
+const { adminBodyParsers, adminBodyParserErrorHandler } = require('./middleware/admin/adminBodyParser');
 const { env } = require('./config/env');
 const { mountSwagger } = require('./config/swagger');
 
@@ -32,6 +34,15 @@ function createApp() {
     credentials: true,
     exposedHeaders: ['X-Access-Token', 'X-Token-Type', 'X-Token-Expires-In']
   }));
+
+  app.use('/api/v1/admin', helmet({
+    frameguard: { action: 'deny' }
+  }));
+  app.use(
+    '/api/v1/admin',
+    ...adminBodyParsers,
+    adminBodyParserErrorHandler
+  );
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: true }));
 

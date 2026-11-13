@@ -61,7 +61,11 @@ const currentAdminHandler = asyncHandler(async (req, res) => {
 });
 
 const createSubAdminHandler = asyncHandler(async (req, res) => {
-  const admin = await createSubAdmin(req.body, req.admin.id);
+  const admin = await createSubAdmin({
+    name: req.body.name,
+    email: req.body.email,
+    password: req.body.password
+  }, req.admin.id);
   return created(res, { admin });
 });
 
