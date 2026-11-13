@@ -400,7 +400,7 @@ There is no `201 Created` response because this is a read-only `GET` endpoint.
 
 **Method & URL:** `GET {{baseUrl}}/api/v1/admin/users/{{userId}}/referrals/{{referralId}}/users`
 
-`userId` is the referral owner ID; `referralId` is that owner's referral ID. The endpoint verifies that the referral belongs to the supplied owner. Deleted users/referrals and deleted referred-user records are omitted; rows remain in the database.
+`userId` is the referral owner ID; `referralId` is that owner's referral ID. The endpoint verifies that the referral belongs to the supplied owner. Deleted users/referrals and deleted referred-user records are omitted; rows remain in the database. `data.total` is the count of all non-deleted users linked to this referral, independent of the requested page. Pagination metadata does not repeat this count.
 
 **Headers**
 
@@ -426,6 +426,7 @@ No request body is sent.
 {
   "success": true,
   "data": {
+    "total": 1,
     "users": [
       {
         "id": "750e8400-e29b-41d4-a716-446655440000",
@@ -447,7 +448,6 @@ No request body is sent.
     "pagination": {
       "page": 1,
       "limit": 20,
-      "total": 1,
       "totalPages": 1,
       "hasNextPage": false,
       "hasPreviousPage": false

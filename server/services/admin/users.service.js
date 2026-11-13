@@ -203,14 +203,17 @@ async function listAdminReferralUsers(userId, referralId, query = {}) {
     .filter((row) => row.id !== null)
     .map(mapUserProfile);
   const total = rows[0].total;
+  const paginationMeta = buildPaginationMeta({
+    page: pagination.page,
+    limit: pagination.limit,
+    total
+  });
+  delete paginationMeta.total;
 
   return {
     users,
-    pagination: buildPaginationMeta({
-      page: pagination.page,
-      limit: pagination.limit,
-      total
-    })
+    total,
+    pagination: paginationMeta
   };
 }
 

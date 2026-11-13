@@ -308,7 +308,8 @@ function buildAdminOpenApiSpec() {
                 has_password: true,
                 auth_provider: 'password'
               }],
-              pagination: { page: 1, limit: 20, total: 1, totalPages: 1, hasNextPage: false, hasPreviousPage: false }
+              total: 1,
+              pagination: { page: 1, limit: 20, totalPages: 1, hasNextPage: false, hasPreviousPage: false }
             }), { $ref: '#/components/schemas/AdminReferralUsersData' }),
             ...errorResponses({
               400: jsonResponse('Invalid UUID, page, or limit.', errorExample('VALIDATION_FAILED', 'Please provide a valid ID.', [
@@ -454,10 +455,22 @@ function buildAdminOpenApiSpec() {
         },
         AdminReferralUsersData: {
           type: 'object',
-          required: ['users', 'pagination'],
+          required: ['users', 'total', 'pagination'],
           properties: {
             users: { type: 'array', items: { $ref: '#/components/schemas/AdminUserProfile' } },
-            pagination: { $ref: '#/components/schemas/AdminPagination' }
+            total: { type: 'integer', description: 'Total number of non-deleted users linked to this referral.' },
+            pagination: { $ref: '#/components/schemas/AdminReferralPagination' }
+          }
+        },
+        AdminReferralPagination: {
+          type: 'object',
+          required: ['page', 'limit', 'totalPages', 'hasNextPage', 'hasPreviousPage'],
+          properties: {
+            page: { type: 'integer' },
+            limit: { type: 'integer' },
+            totalPages: { type: 'integer' },
+            hasNextPage: { type: 'boolean' },
+            hasPreviousPage: { type: 'boolean' }
           }
         },
         AdminPagination: {

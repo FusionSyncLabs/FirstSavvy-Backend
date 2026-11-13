@@ -45,6 +45,8 @@ assert.strictEqual((adminUsersRoutes.match(/requireAdminRole\('SUPER_ADMIN'\)/g)
 assert(adminUsersService.includes('unnest('), 'Referral used_by IDs must be expanded for the linked-user query');
 assert(adminUsersService.includes('LIMIT ${pagination.limit}') && adminUsersService.includes('OFFSET ${pagination.skip}'),
   'Both admin user queries must use bounded pagination');
+assert(/async function listAdminReferralUsers[\s\S]*?return \{\s*users,\s*total,/.test(adminUsersService),
+  'Referral user results must expose the full referred-user count outside pagination metadata');
 assert(adminUsersService.includes('ORDER BY has_referral DESC'),
   'Users with non-deleted referrals must be listed before users without referrals');
 assert(adminUsersService.includes('r.deleted_at IS NULL'), 'Deleted referrals must be excluded');
@@ -85,6 +87,10 @@ assert.strictEqual(
   referralUsersOperation.responses[200].content['application/json'].schema.properties.data.$ref,
   '#/components/schemas/AdminReferralUsersData'
 );
+assert(adminSpec.components.schemas.AdminReferralUsersData.required.includes('total'),
+  'Referral users response schema must require the top-level total');
+assert(!adminSpec.components.schemas.AdminReferralPagination.properties.total,
+  'Referral pagination schema must not repeat the top-level total');
 assert.strictEqual(usersListOperation.summary, 'Get all users by Admin');
 assert.strictEqual(referralUsersOperation.summary, 'Get referred users by Admin');
 assert.deepStrictEqual(usersListOperation.tags, ['Get All Users by Admin']);
